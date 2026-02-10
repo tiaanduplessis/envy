@@ -17,6 +17,7 @@ func NewRootCmd(store *config.Store) *cobra.Command {
 
 	cmd.AddCommand(
 		NewInitCmd(store),
+		NewScanCmd(store),
 		NewSetCmd(store),
 		NewGetCmd(store),
 		NewListCmd(store),
