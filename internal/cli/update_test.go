@@ -1,0 +1,138 @@
+package cli
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/tiaanduplessis/envy/internal/config"
+)
+
+func TestUpdateCmd_Basic(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	store.Save(p)
+
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	os.WriteFile(envFile, []byte("DB=localhost\nPORT=5432\n"), 0o644)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "update", "--project", "foo", "--file", envFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Updated 2 variable") {
+		t.Errorf("output = %q", out)
+	}
+
+	p, _ = store.Load("foo")
+	if got := p.Environments["dev"]["DB"]; got != "localhost" {
+		t.Errorf("DB = %q, want %q", got, "localhost")
+	}
+	if got := p.Environments["dev"]["PORT"]; got != "5432" {
+		t.Errorf("PORT = %q, want %q", got, "5432")
+	}
+}
+
+func TestUpdateCmd_MergeMode(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "original")
+	store.Save(p)
+
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	os.WriteFile(envFile, []byte("DB=new-value\nPORT=5432\n"), 0o644)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "update", "--project", "foo",
+		"--file", envFile, "--merge")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Merged 1 variable") {
+		t.Errorf("output = %q", out)
+	}
+
+	p, _ = store.Load("foo")
+	if got := p.Environments["dev"]["DB"]; got != "original" {
+		t.Errorf("DB should be unchanged: got %q, want %q", got, "original")
+	}
+	if got := p.Environments["dev"]["PORT"]; got != "5432" {
+		t.Errorf("PORT = %q, want %q", got, "5432")
+	}
+}
+
+func TestUpdateCmd_WithEnvAndPath(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "staging"}, "dev")
+	store.Save(p)
+
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	os.WriteFile(envFile, []byte("PORT=3000\n"), 0o644)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "update", "--project", "foo",
+		"--file", envFile, "--env", "staging", "--path", "services/api")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	p, _ = store.Load("foo")
+	if got := p.Paths["services/api"]["staging"]["PORT"]; got != "3000" {
+		t.Errorf("PORT = %q, want %q", got, "3000")
+	}
+}
+
+func TestUpdateCmd_NonexistentProject(t *testing.T) {
+	store := setupTestStore(t)
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "update", "--project", "nope")
+	if err == nil {
+		t.Error("expected error for nonexistent project")
+	}
+}
+
+func TestUpdateCmd_RoundTrip(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetVar("dev", "PORT", "5432")
+	p.SetVar("dev", "URL", "postgres://host:5432/db?opt=val")
+	store.Save(p)
+
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, ".env")
+
+	// Load to file
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "load", "--project", "foo", "--output", outFile)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// Create a fresh project to update into
+	p2, _ := config.NewProject("bar", []string{"dev"}, "dev")
+	store.Save(p2)
+
+	// Update from the file
+	root = NewRootCmd(store)
+	_, err = executeCommand(root, "update", "--project", "bar", "--file", outFile)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	// Verify round-trip
+	p2, _ = store.Load("bar")
+	original, _ := store.Load("foo")
+
+	for key, want := range original.Environments["dev"] {
+		got := p2.Environments["dev"][key]
+		if got != want {
+			t.Errorf("key %q: got %q, want %q", key, got, want)
+		}
+	}
+}
