@@ -13,6 +13,7 @@ import (
 type showOutput struct {
 	Name         string                       `json:"name"`
 	DefaultEnv   string                       `json:"default_env"`
+	Encrypted    bool                         `json:"encrypted"`
 	EnvFiles     map[string]string            `json:"env_files,omitempty"`
 	Environments map[string]map[string]string `json:"environments,omitempty"`
 	Paths        map[string]map[string]string `json:"paths,omitempty"`
@@ -63,6 +64,7 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 				output := showOutput{
 					Name:         p.Name,
 					DefaultEnv:   p.DefaultEnv,
+					Encrypted:    p.IsEncrypted(),
 					EnvFiles:     p.EnvFiles,
 					Environments: p.Environments,
 				}
@@ -82,6 +84,10 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 
 			fmt.Fprintf(out, "Project: %s\n", p.Name)
 			fmt.Fprintf(out, "Default env: %s\n", p.DefaultEnv)
+
+			if p.IsEncrypted() {
+				fmt.Fprintln(out, "Encryption: enabled")
+			}
 
 			if len(p.EnvFiles) > 0 {
 				fmt.Fprintln(out)

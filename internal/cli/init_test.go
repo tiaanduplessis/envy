@@ -3,6 +3,8 @@ package cli
 import (
 	"strings"
 	"testing"
+
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestInitCmd_Basic(t *testing.T) {
@@ -82,5 +84,35 @@ func TestInitCmd_InvalidName(t *testing.T) {
 	_, err := executeCommand(cmd, "init", "../bad")
 	if err == nil {
 		t.Error("expected error for invalid name")
+	}
+}
+
+func TestInitCmd_WithEncrypt(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	cmd := NewRootCmd(store)
+	out, err := executeCommand(cmd, "init", "secure", "--encrypt", "--env", "dev")
+	if err != nil {
+		t.Fatalf("init --encrypt: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Created project") {
+		t.Errorf("expected success message, got %q", out)
+	}
+
+	raw, err := store.LoadRaw("secure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !raw.IsEncrypted() {
+		t.Fatal("expected project to be encrypted from creation")
+	}
+
+	loaded, err := store.Load("secure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.IsEncrypted() {
+		t.Fatal("loaded project should report as encrypted")
 	}
 }

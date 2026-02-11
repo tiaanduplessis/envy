@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestShowCmd_FullProject(t *testing.T) {
@@ -170,5 +171,56 @@ func TestShowCmd_NonexistentProject(t *testing.T) {
 	_, err := executeCommand(root, "show", "nope")
 	if err == nil {
 		t.Error("expected error for nonexistent project")
+	}
+}
+
+func TestShowCmd_EncryptionStatus(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("secure", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "secure"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "show", "secure")
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if !strings.Contains(out, "Encryption: enabled") {
+		t.Errorf("expected 'Encryption: enabled' in output: %q", out)
+	}
+}
+
+func TestShowCmd_EncryptionStatus_JSON(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("secure", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "secure"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "show", "secure", "--json")
+	if err != nil {
+		t.Fatalf("show --json: %v", err)
+	}
+
+	var result showOutput
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
+	}
+	if !result.Encrypted {
+		t.Error("expected encrypted=true in JSON output")
 	}
 }
