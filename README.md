@@ -4,6 +4,17 @@ A local-first Go CLI for managing `.env` files across projects from a centralise
 
 Envy stores project configurations as YAML files under `~/.config/envy/projects/`. Each project gets its own file. Variables are organised by named environments (e.g. `dev`, `staging`, `prod`) and optional monorepo subpaths. When you run `envy load`, it merges the appropriate variables and writes a `.env` file to your working directory.
 
+## A note on scope
+
+Envy is designed for engineers juggling multiple hobby or side projects who need a simple, local-first way to manage `.env` files. It is not intended as a production secret management solution.
+
+For production workloads, consider a dedicated secrets manager such as:
+
+- [HashiCorp Vault](https://www.vaultproject.io/) -- self-hosted or managed (HCP Vault), with fine-grained access policies and audit logging.
+- [Doppler](https://www.doppler.com/) -- SaaS platform purpose-built for syncing secrets across environments and CI/CD pipelines.
+- [Infisical](https://infisical.com/) -- open-source secret management with native integrations for most deployment platforms.
+- Cloud-provider offerings: [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), [Google Cloud Secret Manager](https://cloud.google.com/secret-manager), or [Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/).
+
 ## Installation
 
 Requires Go 1.25.7 or later.
