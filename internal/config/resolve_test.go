@@ -28,6 +28,60 @@ func TestResolveEnv(t *testing.T) {
 	}
 }
 
+func TestResolveOutputFile(t *testing.T) {
+	tests := []struct {
+		name        string
+		envFiles    map[string]string
+		env         string
+		flagValue   string
+		flagChanged bool
+		want        string
+	}{
+		{
+			"explicit flag overrides everything",
+			map[string]string{"local": ".env.local"},
+			"local", "custom.env", true,
+			"custom.env",
+		},
+		{
+			"env file mapping used when flag not set",
+			map[string]string{"local": ".env.local"},
+			"local", ".env", false,
+			".env.local",
+		},
+		{
+			"default when no mapping and no flag",
+			nil,
+			"dev", ".env", false,
+			".env",
+		},
+		{
+			"default when env has no mapping",
+			map[string]string{"local": ".env.local"},
+			"dev", ".env", false,
+			".env",
+		},
+		{
+			"flag explicitly set to .env overrides mapping",
+			map[string]string{"local": ".env.local"},
+			"local", ".env", true,
+			".env",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, _ := NewProject("test", []string{"dev", "local"}, "dev")
+			p.EnvFiles = tt.envFiles
+
+			got := ResolveOutputFile(p, tt.env, tt.flagValue, tt.flagChanged)
+			if got != tt.want {
+				t.Errorf("ResolveOutputFile() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestResolveVars(t *testing.T) {
 	tests := []struct {
 		name    string

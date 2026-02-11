@@ -129,3 +129,43 @@ func TestProject_GetPathVars(t *testing.T) {
 		t.Errorf("expected nil for nonexistent env, got %v", vars)
 	}
 }
+
+func TestProject_SetEnvFile(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	p.SetEnvFile("local", ".env.local")
+
+	if got := p.EnvFiles["local"]; got != ".env.local" {
+		t.Errorf("got %q, want %q", got, ".env.local")
+	}
+
+	// Overwrite existing
+	p.SetEnvFile("local", ".env.local.override")
+	if got := p.EnvFiles["local"]; got != ".env.local.override" {
+		t.Errorf("got %q, want %q", got, ".env.local.override")
+	}
+}
+
+func TestProject_SetEnvFile_NilMap(t *testing.T) {
+	p := &Project{Name: "test", DefaultEnv: "dev"}
+	p.SetEnvFile("staging", ".env.staging")
+
+	if got := p.EnvFiles["staging"]; got != ".env.staging" {
+		t.Errorf("got %q, want %q", got, ".env.staging")
+	}
+}
+
+func TestProject_ClearEnvFile(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	p.SetEnvFile("local", ".env.local")
+	p.ClearEnvFile("local")
+
+	if _, ok := p.EnvFiles["local"]; ok {
+		t.Error("expected env file mapping to be cleared")
+	}
+}
+
+func TestProject_ClearEnvFile_NilMap(t *testing.T) {
+	p := &Project{Name: "test", DefaultEnv: "dev"}
+	// Should not panic
+	p.ClearEnvFile("local")
+}

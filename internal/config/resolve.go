@@ -23,6 +23,20 @@ func ResolveEnv(flagValue, defaultEnv string) string {
 	return "dev"
 }
 
+// ResolveOutputFile determines the output filename for a load operation.
+// Priority: explicit --output flag > per-environment mapping > ".env" default.
+func ResolveOutputFile(p *Project, env, flagValue string, flagChanged bool) string {
+	if flagChanged {
+		return flagValue
+	}
+	if p.EnvFiles != nil {
+		if filename, ok := p.EnvFiles[env]; ok {
+			return filename
+		}
+	}
+	return ".env"
+}
+
 // ResolveVars returns the merged variable map for a given environment and optional path.
 // If path is empty, returns only root-level environment variables.
 // If the path has no overrides, returns root-level variables without error.

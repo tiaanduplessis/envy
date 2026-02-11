@@ -104,6 +104,13 @@ func newScanCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 				return err
 			}
 
+			for env, filePath := range result.Root {
+				filename := filepath.Base(filePath)
+				if filename != ".env" {
+					project.SetEnvFile(env, filename)
+				}
+			}
+
 			if err := store.Save(project); err != nil {
 				return err
 			}

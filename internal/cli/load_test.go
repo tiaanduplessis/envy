@@ -145,6 +145,67 @@ func TestLoadCmd_ForceOverwrite(t *testing.T) {
 	}
 }
 
+func TestLoadCmd_UsesEnvFileMapping(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local"}, "dev")
+	p.SetVar("local", "DB", "localhost")
+	p.SetEnvFile("local", ".env.local")
+	store.Save(p)
+
+	dir := t.TempDir()
+	// Change working directory so the relative .env.local is written there
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "foo", "--env", "local", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, ".env.local") {
+		t.Errorf("expected output to reference .env.local: %q", out)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".env.local"))
+	if err != nil {
+		t.Fatalf("reading .env.local: %v", err)
+	}
+	if !strings.Contains(string(data), "DB=localhost") {
+		t.Errorf("file content = %q, want DB=localhost", string(data))
+	}
+}
+
+func TestLoadCmd_OutputFlagOverridesMapping(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local"}, "dev")
+	p.SetVar("local", "DB", "localhost")
+	p.SetEnvFile("local", ".env.local")
+	store.Save(p)
+
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "custom.env")
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "foo", "--env", "local", "--output", outFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "custom.env") {
+		t.Errorf("expected output to reference custom.env: %q", out)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("reading custom.env: %v", err)
+	}
+	if !strings.Contains(string(data), "DB=localhost") {
+		t.Errorf("file content = %q, want DB=localhost", string(data))
+	}
+}
+
 func TestLoadCmd_NonexistentProject(t *testing.T) {
 	store := setupTestStore(t)
 	root := NewRootCmd(store)

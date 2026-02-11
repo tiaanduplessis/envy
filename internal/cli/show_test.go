@@ -104,6 +104,66 @@ func TestShowCmd_JSON(t *testing.T) {
 	}
 }
 
+func TestShowCmd_DisplaysEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local", "staging"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetEnvFile("local", ".env.local")
+	p.SetEnvFile("staging", ".env.staging")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "show", "foo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Env files:") {
+		t.Errorf("missing 'Env files:' section: %q", out)
+	}
+	if !strings.Contains(out, ".env.local") {
+		t.Errorf("missing .env.local: %q", out)
+	}
+	if !strings.Contains(out, ".env.staging") {
+		t.Errorf("missing .env.staging: %q", out)
+	}
+}
+
+func TestShowCmd_NoEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "show", "foo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(out, "Env files:") {
+		t.Errorf("should not show env files section when none configured: %q", out)
+	}
+}
+
+func TestShowCmd_JSON_IncludesEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local"}, "dev")
+	p.SetEnvFile("local", ".env.local")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "show", "foo", "--json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result showOutput
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
+	}
+	if result.EnvFiles["local"] != ".env.local" {
+		t.Errorf("EnvFiles[local] = %q, want %q", result.EnvFiles["local"], ".env.local")
+	}
+}
+
 func TestShowCmd_NonexistentProject(t *testing.T) {
 	store := setupTestStore(t)
 	root := NewRootCmd(store)

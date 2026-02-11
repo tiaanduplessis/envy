@@ -165,6 +165,29 @@ func TestStore_LoadInvalidYAML(t *testing.T) {
 	}
 }
 
+func TestStore_RoundTrip_WithEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := NewProject("test", []string{"dev", "local", "staging"}, "dev")
+	p.SetEnvFile("local", ".env.local")
+	p.SetEnvFile("staging", ".env.staging")
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := store.Load("test")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if got := loaded.EnvFiles["local"]; got != ".env.local" {
+		t.Errorf("EnvFiles[local] = %q, want %q", got, ".env.local")
+	}
+	if got := loaded.EnvFiles["staging"]; got != ".env.staging" {
+		t.Errorf("EnvFiles[staging] = %q, want %q", got, ".env.staging")
+	}
+}
+
 func TestStore_CRUDCycle(t *testing.T) {
 	store := setupTestStore(t)
 

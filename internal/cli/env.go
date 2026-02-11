@@ -26,6 +26,7 @@ func newEnvCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 		newEnvRemoveCmd(store, stdin),
 		newEnvListCmd(store),
 		newEnvCopyCmd(store),
+		newEnvFileCmd(store),
 	)
 
 	return cmd
@@ -104,6 +105,10 @@ func newEnvRemoveCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 				delete(p.Paths[path], envName)
 			}
 
+			if p.EnvFiles != nil {
+				delete(p.EnvFiles, envName)
+			}
+
 			if err := store.Save(p); err != nil {
 				return err
 			}
@@ -135,6 +140,12 @@ func newEnvListCmd(store *config.Store) *cobra.Command {
 			sort.Strings(names)
 
 			for _, name := range names {
+				if p.EnvFiles != nil {
+					if file, ok := p.EnvFiles[name]; ok {
+						fmt.Fprintf(cmd.OutOrStdout(), "%-12s (%s)\n", name, file)
+						continue
+					}
+				}
 				fmt.Fprintln(cmd.OutOrStdout(), name)
 			}
 			return nil
@@ -186,4 +197,72 @@ func newEnvCopyCmd(store *config.Store) *cobra.Command {
 	cmd.MarkFlagRequired("to")
 
 	return cmd
+}
+
+func newEnvFileCmd(store *config.Store) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "file",
+		Short: "Manage output filenames for environments",
+	}
+
+	cmd.AddCommand(
+		newEnvFileSetCmd(store),
+		newEnvFileClearCmd(store),
+	)
+
+	return cmd
+}
+
+func newEnvFileSetCmd(store *config.Store) *cobra.Command {
+	return &cobra.Command{
+		Use:   "set <project> <environment> <filename>",
+		Short: "Set the output filename for an environment",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, envName, filename := args[0], args[1], args[2]
+
+			p, err := store.Load(name)
+			if err != nil {
+				return err
+			}
+
+			if _, ok := p.Environments[envName]; !ok {
+				return fmt.Errorf("environment %q not found in project %q", envName, name)
+			}
+
+			p.SetEnvFile(envName, filename)
+
+			if err := store.Save(p); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Set output file for %q to %q in %q\n", envName, filename, name)
+			return nil
+		},
+	}
+}
+
+func newEnvFileClearCmd(store *config.Store) *cobra.Command {
+	return &cobra.Command{
+		Use:   "clear <project> <environment>",
+		Short: "Clear the output filename for an environment",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, envName := args[0], args[1]
+
+			p, err := store.Load(name)
+			if err != nil {
+				return err
+			}
+
+			p.ClearEnvFile(envName)
+
+			if err := store.Save(p); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Cleared output file for %q in %q\n", envName, name)
+			return nil
+		},
+	}
 }
