@@ -18,14 +18,14 @@ type EncryptionConfig struct {
 }
 
 type Project struct {
-	Name         string                                   `yaml:"name"`
-	CreatedAt    time.Time                                `yaml:"created_at"`
-	UpdatedAt    time.Time                                `yaml:"updated_at"`
-	DefaultEnv   string                                   `yaml:"default_env"`
-	Encryption   *EncryptionConfig                        `yaml:"encryption,omitempty"`
-	EnvFiles     map[string]string                        `yaml:"env_files,omitempty"`
-	Environments map[string]map[string]string             `yaml:"environments,omitempty"`
-	Paths        map[string]map[string]map[string]string  `yaml:"paths,omitempty"`
+	Name         string                                  `yaml:"name"`
+	CreatedAt    time.Time                               `yaml:"created_at"`
+	UpdatedAt    time.Time                               `yaml:"updated_at"`
+	DefaultEnv   string                                  `yaml:"default_env"`
+	Encryption   *EncryptionConfig                       `yaml:"encryption,omitempty"`
+	EnvFiles     map[string]string                       `yaml:"env_files,omitempty"`
+	Environments map[string]map[string]string            `yaml:"environments,omitempty"`
+	Paths        map[string]map[string]map[string]string `yaml:"paths,omitempty"`
 }
 
 func (p *Project) IsEncrypted() bool {
