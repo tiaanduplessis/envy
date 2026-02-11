@@ -216,4 +216,3 @@ func parseEnvFile(path string) (map[string]string, error) {
 	}
 	return vars, nil
 }
-

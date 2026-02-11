@@ -12,9 +12,9 @@ import (
 )
 
 type DiffResult struct {
-	Added   map[string]string            // keys only in right
-	Removed map[string]string            // keys only in left
-	Changed map[string][2]string         // keys in both with different values: [left, right]
+	Added   map[string]string    // keys only in right
+	Removed map[string]string    // keys only in left
+	Changed map[string][2]string // keys in both with different values: [left, right]
 }
 
 func ComputeDiff(left, right map[string]string) DiffResult {

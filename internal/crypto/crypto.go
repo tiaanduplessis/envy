@@ -33,7 +33,7 @@ type Params struct {
 }
 
 var (
-	ErrNotEncrypted    = errors.New("value is not encrypted")
+	ErrNotEncrypted     = errors.New("value is not encrypted")
 	ErrDecryptionFailed = errors.New("decryption failed: wrong passphrase or corrupted data")
 )
 
