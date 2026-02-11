@@ -1,9 +1,13 @@
 package config
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func setupTestStore(t *testing.T) *Store {
@@ -227,5 +231,176 @@ func TestStore_CRUDCycle(t *testing.T) {
 	}
 	if store.Exists("lifecycle") {
 		t.Error("expected project to be deleted")
+	}
+}
+
+func setupEncryptedTestStore(t *testing.T) *Store {
+	t.Helper()
+	store := NewStore(filepath.Join(t.TempDir(), "projects"))
+	store.SetPassphraseFunc(func(string) (string, error) {
+		return "test-passphrase", nil
+	})
+	return store
+}
+
+func enableEncryption(t *testing.T, p *Project) {
+	t.Helper()
+	salt, err := crypto.GenerateSalt()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Encryption = &EncryptionConfig{
+		Enabled: true,
+		Salt:    base64.StdEncoding.EncodeToString(salt),
+		Params:  crypto.DefaultParams(),
+	}
+}
+
+func TestStore_EncryptedRoundTrip(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("secret", []string{"dev", "prod"}, "dev")
+	p.SetVar("dev", "DB_PASSWORD", "hunter2")
+	p.SetVar("dev", "API_KEY", "sk-12345")
+	p.SetVar("prod", "DB_PASSWORD", "p4ssw0rd")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	enableEncryption(t, p)
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := store.Load("secret")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if got := loaded.Environments["dev"]["DB_PASSWORD"]; got != "hunter2" {
+		t.Errorf("DB_PASSWORD = %q, want %q", got, "hunter2")
+	}
+	if got := loaded.Environments["dev"]["API_KEY"]; got != "sk-12345" {
+		t.Errorf("API_KEY = %q, want %q", got, "sk-12345")
+	}
+	if got := loaded.Environments["prod"]["DB_PASSWORD"]; got != "p4ssw0rd" {
+		t.Errorf("prod DB_PASSWORD = %q, want %q", got, "p4ssw0rd")
+	}
+	if got := loaded.Paths["services/api"]["dev"]["PORT"]; got != "3000" {
+		t.Errorf("PORT = %q, want %q", got, "3000")
+	}
+}
+
+func TestStore_EncryptedValuesOnDisk(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("ondisk", []string{"dev"}, "dev")
+	p.SetVar("dev", "SECRET", "plaintext-value")
+	enableEncryption(t, p)
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	raw, err := store.LoadRaw("ondisk")
+	if err != nil {
+		t.Fatalf("LoadRaw: %v", err)
+	}
+
+	val := raw.Environments["dev"]["SECRET"]
+	if !strings.HasPrefix(val, crypto.EncryptedPrefix) {
+		t.Errorf("value on disk should be encrypted, got %q", val)
+	}
+}
+
+func TestStore_EncryptedWrongPassphrase(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("locked", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	enableEncryption(t, p)
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	wrongStore := NewStore(store.basePath)
+	wrongStore.SetPassphraseFunc(func(string) (string, error) {
+		return "wrong-passphrase", nil
+	})
+
+	_, err := wrongStore.Load("locked")
+	if err == nil {
+		t.Fatal("expected error with wrong passphrase")
+	}
+	if !strings.Contains(err.Error(), "decryption failed") {
+		t.Errorf("expected decryption error, got: %v", err)
+	}
+}
+
+func TestStore_EncryptedNoPassphraseFunc(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("nofunc", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	enableEncryption(t, p)
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	bareStore := NewStore(store.basePath)
+	_, err := bareStore.Load("nofunc")
+	if err == nil {
+		t.Fatal("expected error with no passphrase func")
+	}
+	if !strings.Contains(err.Error(), "no passphrase provider") {
+		t.Errorf("expected passphrase provider error, got: %v", err)
+	}
+}
+
+func TestStore_EncryptedLoadSaveCycle(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("cycle", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "original")
+	enableEncryption(t, p)
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := store.Load("cycle")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	loaded.SetVar("dev", "KEY", "updated")
+	if err := store.Save(loaded); err != nil {
+		t.Fatalf("Save after update: %v", err)
+	}
+
+	reloaded, err := store.Load("cycle")
+	if err != nil {
+		t.Fatalf("Load after update: %v", err)
+	}
+	if got := reloaded.Environments["dev"]["KEY"]; got != "updated" {
+		t.Errorf("KEY = %q, want %q", got, "updated")
+	}
+}
+
+func TestStore_UnencryptedProjectUnchanged(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	p, _ := NewProject("plain", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	raw, err := store.LoadRaw("plain")
+	if err != nil {
+		t.Fatalf("LoadRaw: %v", err)
+	}
+
+	val := raw.Environments["dev"]["KEY"]
+	if val != "value" {
+		t.Errorf("unencrypted value should be plaintext, got %q", val)
+	}
+	if raw.IsEncrypted() {
+		t.Error("unencrypted project should not report as encrypted")
 	}
 }

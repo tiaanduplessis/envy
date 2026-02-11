@@ -6,6 +6,7 @@ import (
 
 	"github.com/tiaanduplessis/envy/internal/cli"
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 	"github.com/tiaanduplessis/envy/internal/util"
 )
 
@@ -17,6 +18,7 @@ func main() {
 	}
 
 	store := config.NewStore(dir)
+	store.SetPassphraseFunc(crypto.GetPassphrase)
 	cmd := cli.NewRootCmd(store)
 
 	if err := cmd.Execute(); err != nil {

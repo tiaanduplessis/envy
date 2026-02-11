@@ -27,6 +27,9 @@ func NewRootCmd(store *config.Store) *cobra.Command {
 		NewDeleteCmd(store),
 		NewEnvCmd(store),
 		NewDiffCmd(store),
+		NewEncryptCmd(store),
+		NewDecryptCmd(store),
+		NewRekeyCmd(store),
 	)
 
 	return cmd

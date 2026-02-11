@@ -82,7 +82,7 @@ paths:
 
 Project names must start with an alphanumeric character and contain only alphanumeric characters, hyphens, or underscores. The name maps directly to the filename on disk (`my-app` becomes `my-app.yaml`).
 
-All values are stored as strings.
+All values are stored as strings. Values can optionally be encrypted at rest -- see [Encryption](#encryption) below.
 
 ## Variable inheritance
 
@@ -121,6 +121,9 @@ envy init my-monorepo --path services/api --path services/worker
 
 # Set a specific default environment
 envy init my-app --env dev --env staging --default-env staging
+
+# Create an encrypted project from the start
+envy init my-app --encrypt
 ```
 
 | Flag | Description |
@@ -128,6 +131,7 @@ envy init my-app --env dev --env staging --default-env staging
 | `--env <name>` | Environments to create (repeatable). Defaults to `dev` if omitted. |
 | `--path <subdir>` | Monorepo subpath stubs to create (repeatable). |
 | `--default-env <name>` | Set the default environment. Defaults to the first `--env` value, or `dev`. |
+| `--encrypt` | Enable encryption on the new project. Prompts for a passphrase. |
 
 Fails if a project with the same name already exists.
 
@@ -395,6 +399,114 @@ envy diff my-app --env dev --env staging --reveal
 | `--reveal` | Show actual values instead of masked output. |
 
 Output uses `+` for added keys, `-` for removed keys, and `~` for changed values.
+
+## Encryption
+
+Envy supports optional per-project encryption. When enabled, variable values are encrypted at rest using AES-256-GCM with Argon2id key derivation. The YAML structure (project name, environment names, variable names, paths) remains readable -- only the values are opaque.
+
+Encryption is transparent to all commands. When you run `envy get`, `envy load`, `envy show`, or any other command on an encrypted project, you are prompted for the passphrase automatically.
+
+### Passphrase resolution
+
+The passphrase is resolved in this order:
+
+1. The `ENVY_PASSPHRASE` environment variable (useful for scripting and CI).
+2. Interactive terminal prompt (passphrase is hidden).
+
+If neither is available (e.g. piped stdin with no env var), the command fails with a clear error message.
+
+### Encrypted YAML format
+
+An encrypted project's YAML file looks like this:
+
+```yaml
+name: my-api
+encryption:
+  enabled: true
+  salt: "base64-encoded-salt"
+  params:
+    time: 3
+    memory: 65536
+    threads: 4
+environments:
+  dev:
+    DATABASE_URL: "ENC:base64-encoded-ciphertext..."
+    API_KEY: "ENC:base64-encoded-ciphertext..."
+```
+
+Each value has a unique random nonce, so encrypting the same plaintext twice produces different ciphertexts.
+
+### envy encrypt
+
+Enable encryption on an existing project.
+
+```bash
+envy encrypt my-app
+# Prompts for passphrase (twice, for confirmation)
+```
+
+All existing variable values are encrypted in place. The project's YAML file is rewritten with the `encryption` block and `ENC:`-prefixed values.
+
+Fails if the project is already encrypted.
+
+### envy decrypt
+
+Disable encryption and store values as plaintext.
+
+```bash
+envy decrypt my-app
+# Prompts for passphrase
+```
+
+All values are decrypted and the `encryption` block is removed from the YAML file.
+
+Fails if the project is not encrypted.
+
+### envy rekey
+
+Change the encryption passphrase.
+
+```bash
+envy rekey my-app
+# Prompts for current passphrase, then new passphrase (twice)
+```
+
+Decrypts all values with the old passphrase, generates a new salt, and re-encrypts with the new passphrase.
+
+Fails if the project is not encrypted.
+
+### Encryption workflow example
+
+```bash
+# Create a project and add some secrets
+envy init my-api --env dev --env prod
+envy set my-api DB_PASSWORD=hunter2 API_KEY=sk-12345 --env dev
+
+# Enable encryption
+envy encrypt my-api
+
+# All commands still work -- passphrase is prompted automatically
+envy show my-api --reveal
+envy load --project my-api --dry-run
+
+# Use the env var to avoid prompts (e.g. in CI)
+export ENVY_PASSPHRASE=my-secret-passphrase
+envy get my-api DB_PASSWORD
+
+# Change passphrase
+envy rekey my-api
+
+# Remove encryption entirely
+envy decrypt my-api
+```
+
+Alternatively, create an encrypted project from the start:
+
+```bash
+envy init my-api --encrypt --env dev --env prod
+envy set my-api DB_PASSWORD=hunter2 --env dev
+# Values are encrypted on disk immediately
+```
 
 ## Example workflow
 

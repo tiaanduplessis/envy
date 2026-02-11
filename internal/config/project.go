@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 var validName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// EncryptionConfig holds per-project encryption metadata.
+type EncryptionConfig struct {
+	Enabled bool          `yaml:"enabled"`
+	Salt    string        `yaml:"salt"`
+	Params  crypto.Params `yaml:"params"`
+}
 
 // Project represents a single envy project configuration.
 type Project struct {
@@ -14,9 +23,15 @@ type Project struct {
 	CreatedAt    time.Time                                `yaml:"created_at"`
 	UpdatedAt    time.Time                                `yaml:"updated_at"`
 	DefaultEnv   string                                   `yaml:"default_env"`
+	Encryption   *EncryptionConfig                        `yaml:"encryption,omitempty"`
 	EnvFiles     map[string]string                        `yaml:"env_files,omitempty"`
 	Environments map[string]map[string]string             `yaml:"environments,omitempty"`
 	Paths        map[string]map[string]map[string]string  `yaml:"paths,omitempty"`
+}
+
+// IsEncrypted reports whether this project has encryption enabled.
+func (p *Project) IsEncrypted() bool {
+	return p.Encryption != nil && p.Encryption.Enabled
 }
 
 // NewProject creates a new project with the given name, environments, and default env.

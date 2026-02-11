@@ -14,6 +14,15 @@ func setupTestStore(t *testing.T) *config.Store {
 	return config.NewStore(filepath.Join(t.TempDir(), "projects"))
 }
 
+func setupEncryptedTestStore(t *testing.T) *config.Store {
+	t.Helper()
+	store := config.NewStore(filepath.Join(t.TempDir(), "projects"))
+	store.SetPassphraseFunc(func(string) (string, error) {
+		return "test-passphrase", nil
+	})
+	return store
+}
+
 func executeCommand(cmd *cobra.Command, args ...string) (string, error) {
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
