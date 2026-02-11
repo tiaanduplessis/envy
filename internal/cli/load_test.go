@@ -104,7 +104,6 @@ func TestLoadCmd_PromptOnExistingFile(t *testing.T) {
 	outFile := filepath.Join(dir, ".env")
 	os.WriteFile(outFile, []byte("OLD=data"), 0o644)
 
-	// Simulate "n" response
 	root := newLoadCmd(store, strings.NewReader("n\n"))
 	root.SetArgs([]string{"--project", "foo", "--output", outFile})
 	var buf strings.Builder
@@ -153,7 +152,6 @@ func TestLoadCmd_UsesEnvFileMapping(t *testing.T) {
 	store.Save(p)
 
 	dir := t.TempDir()
-	// Change working directory so the relative .env.local is written there
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
@@ -331,7 +329,6 @@ func TestLoadCmd_AllPaths_Confirmation(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
 
-	// Decline
 	cmd := newLoadCmd(store, strings.NewReader("n\n"))
 	cmd.SetArgs([]string{"--project", "mono", "--all-paths"})
 	var buf strings.Builder
@@ -346,7 +343,6 @@ func TestLoadCmd_AllPaths_Confirmation(t *testing.T) {
 		t.Error("root .env should not exist after declining")
 	}
 
-	// Accept
 	cmd = newLoadCmd(store, strings.NewReader("y\n"))
 	cmd.SetArgs([]string{"--project", "mono", "--all-paths"})
 	buf.Reset()

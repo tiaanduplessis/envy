@@ -62,7 +62,6 @@ func TestEnvRemoveCmd_WithConfirmation(t *testing.T) {
 	p, _ := config.NewProject("foo", []string{"dev", "staging"}, "dev")
 	store.Save(p)
 
-	// Confirm with "y"
 	envCmd := newEnvCmd(store, strings.NewReader("y\n"))
 	envCmd.SetArgs([]string{"remove", "foo", "staging"})
 	var buf strings.Builder
@@ -148,7 +147,6 @@ func TestEnvCopyCmd(t *testing.T) {
 
 	p, _ = store.Load("foo")
 
-	// Verify staging has the copied vars
 	if got := p.Environments["staging"]["DB"]; got != "localhost" {
 		t.Errorf("staging DB = %q, want %q", got, "localhost")
 	}
@@ -156,7 +154,6 @@ func TestEnvCopyCmd(t *testing.T) {
 		t.Errorf("staging PORT = %q, want %q", got, "5432")
 	}
 
-	// Verify source unchanged
 	if got := p.Environments["dev"]["DB"]; got != "localhost" {
 		t.Errorf("dev DB should be unchanged: %q", got)
 	}

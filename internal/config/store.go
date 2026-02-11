@@ -19,7 +19,6 @@ type Store struct {
 	cachedPassphrase string
 }
 
-// NewStore creates a Store backed by the given directory.
 func NewStore(basePath string) *Store {
 	return &Store{basePath: basePath}
 }
@@ -241,7 +240,6 @@ func (s *Store) List() ([]string, error) {
 	return names, nil
 }
 
-// Delete removes a project file from disk.
 func (s *Store) Delete(name string) error {
 	path := s.projectPath(name)
 	err := os.Remove(path)
@@ -254,7 +252,6 @@ func (s *Store) Delete(name string) error {
 	return nil
 }
 
-// Exists checks whether a project file exists on disk.
 func (s *Store) Exists(name string) bool {
 	_, err := os.Stat(s.projectPath(name))
 	return err == nil

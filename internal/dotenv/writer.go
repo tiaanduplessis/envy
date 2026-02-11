@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// Format specifies the output format for writing env variables.
 type Format string
 
 const (
@@ -15,14 +14,12 @@ const (
 	FormatExport Format = "export"
 )
 
-// WriteOptions controls the output of Write.
 type WriteOptions struct {
 	Format Format
 	Header string
 	Sorted bool
 }
 
-// Write writes key-value pairs to w in the specified format.
 func Write(w io.Writer, vars map[string]string, opts WriteOptions) error {
 	if opts.Format == "" {
 		opts.Format = FormatDotenv
@@ -67,8 +64,6 @@ func Write(w io.Writer, vars map[string]string, opts WriteOptions) error {
 	return nil
 }
 
-// quoteValue decides whether a value needs quoting and returns the
-// appropriately formatted string.
 func quoteValue(s string) string {
 	if s == "" {
 		return `""`

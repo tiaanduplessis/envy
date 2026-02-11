@@ -195,14 +195,12 @@ func TestStore_RoundTrip_WithEnvFiles(t *testing.T) {
 func TestStore_CRUDCycle(t *testing.T) {
 	store := setupTestStore(t)
 
-	// Create
 	p, _ := NewProject("lifecycle", []string{"dev"}, "dev")
 	p.SetVar("dev", "KEY", "v1")
 	if err := store.Save(p); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	// Read
 	loaded, err := store.Load("lifecycle")
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -211,7 +209,6 @@ func TestStore_CRUDCycle(t *testing.T) {
 		t.Errorf("KEY = %q, want %q", got, "v1")
 	}
 
-	// Update
 	loaded.SetVar("dev", "KEY", "v2")
 	if err := store.Save(loaded); err != nil {
 		t.Fatalf("Save update: %v", err)
@@ -225,7 +222,6 @@ func TestStore_CRUDCycle(t *testing.T) {
 		t.Errorf("KEY = %q after update, want %q", got, "v2")
 	}
 
-	// Delete
 	if err := store.Delete("lifecycle"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}

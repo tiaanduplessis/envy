@@ -17,7 +17,6 @@ type EncryptionConfig struct {
 	Params  crypto.Params `yaml:"params"`
 }
 
-// Project represents a single envy project configuration.
 type Project struct {
 	Name         string                                   `yaml:"name"`
 	CreatedAt    time.Time                                `yaml:"created_at"`
@@ -29,7 +28,6 @@ type Project struct {
 	Paths        map[string]map[string]map[string]string  `yaml:"paths,omitempty"`
 }
 
-// IsEncrypted reports whether this project has encryption enabled.
 func (p *Project) IsEncrypted() bool {
 	return p.Encryption != nil && p.Encryption.Enabled
 }
@@ -87,7 +85,6 @@ func (p *Project) SetVar(env, key, value string) {
 	p.UpdatedAt = time.Now().UTC()
 }
 
-// SetPathVar sets a variable for a specific path and environment.
 func (p *Project) SetPathVar(path, env, key, value string) {
 	if p.Paths == nil {
 		p.Paths = make(map[string]map[string]map[string]string)
@@ -113,7 +110,6 @@ func (p *Project) GetPathVars(path, env string) map[string]string {
 	return p.Paths[path][env]
 }
 
-// SetEnvFile sets the output filename for the given environment.
 func (p *Project) SetEnvFile(env, filename string) {
 	if p.EnvFiles == nil {
 		p.EnvFiles = make(map[string]string)
@@ -122,7 +118,6 @@ func (p *Project) SetEnvFile(env, filename string) {
 	p.UpdatedAt = time.Now().UTC()
 }
 
-// ClearEnvFile removes the output filename mapping for the given environment.
 func (p *Project) ClearEnvFile(env string) {
 	if p.EnvFiles == nil {
 		return

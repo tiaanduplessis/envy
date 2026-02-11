@@ -107,25 +107,21 @@ func TestUpdateCmd_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	outFile := filepath.Join(dir, ".env")
 
-	// Load to file
 	root := NewRootCmd(store)
 	_, err := executeCommand(root, "load", "--project", "foo", "--output", outFile)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
 
-	// Create a fresh project to update into
 	p2, _ := config.NewProject("bar", []string{"dev"}, "dev")
 	store.Save(p2)
 
-	// Update from the file
 	root = NewRootCmd(store)
 	_, err = executeCommand(root, "update", "--project", "bar", "--file", outFile)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
-	// Verify round-trip
 	p2, _ = store.Load("bar")
 	original, _ := store.Load("foo")
 
