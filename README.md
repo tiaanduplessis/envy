@@ -4,17 +4,6 @@ A local-first Go CLI for managing `.env` files across projects from a centralise
 
 Envy stores project configurations as YAML files under `~/.config/envy/projects/`. Each project gets its own file. Variables are organised by named environments (e.g. `dev`, `staging`, `prod`) and optional monorepo subpaths. When you run `envy load`, it merges the appropriate variables and writes a `.env` file to your working directory.
 
-## A note on scope
-
-Envy is designed for engineers juggling multiple hobby or side projects who need a simple, local-first way to manage `.env` files. It is not intended as a production secret management solution.
-
-For production workloads, consider a dedicated secrets manager such as:
-
-- [HashiCorp Vault](https://www.vaultproject.io/) -- self-hosted or managed (HCP Vault), with fine-grained access policies and audit logging.
-- [Doppler](https://www.doppler.com/) -- SaaS platform purpose-built for syncing secrets across environments and CI/CD pipelines.
-- [Infisical](https://infisical.com/) -- open-source secret management with native integrations for most deployment platforms.
-- Cloud-provider offerings: [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), [Google Cloud Secret Manager](https://cloud.google.com/secret-manager), or [Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/).
-
 ## Installation
 
 Requires Go 1.25.7 or later.
@@ -32,7 +21,374 @@ make build
 # binary is at bin/envy
 ```
 
-## Config store
+Pre-built binaries for Linux, macOS, and Windows are available on the [GitHub releases](https://github.com/tiaanduplessis/envy/releases) page.
+
+## Quick start
+
+### Import existing .env files from a project
+
+If you already have `.env` files in a repo, `scan` discovers them and stores everything in one go:
+
+```bash
+cd ~/code/my-monorepo
+envy scan my-monorepo .
+```
+
+To replay those `.env` files into a fresh clone:
+
+```bash
+cd ~/code/my-monorepo-clone
+envy load --project my-monorepo --all-paths --force
+```
+
+### Create a project from scratch
+
+```bash
+# Create a project with dev and staging environments
+envy init my-app --env dev --env staging
+
+# Add some variables
+envy set my-app DB_HOST=localhost DB_PORT=5432 --env dev
+envy set my-app DB_HOST=staging-db.example.com DB_PORT=5432 --env staging
+
+# Write a .env file for the dev environment
+envy load --project my-app --env dev
+
+# Preview without writing a file
+envy load --project my-app --env staging --dry-run
+```
+
+### Import a single .env file
+
+```bash
+envy init my-app
+envy update --project my-app --file .env --env dev
+```
+
+## Commands
+
+### envy init
+
+Create a new project configuration.
+
+```bash
+envy init my-app
+envy init my-app --env dev --env staging --env prod
+envy init my-monorepo --path services/api --path services/worker
+envy init my-app --default-env staging
+envy init my-app --encrypt
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Environments to create (repeatable). Defaults to `dev` if omitted. |
+| `--path <subdir>` | Monorepo subpath stubs to create (repeatable). |
+| `--default-env <name>` | Set the default environment. Defaults to the first `--env` value, or `dev`. |
+| `--encrypt` | Enable encryption on the new project. Prompts for a passphrase. |
+
+Fails if a project with the same name already exists.
+
+### envy scan
+
+Create a project by scanning a directory tree for `.env` files.
+
+```bash
+# Scan the current directory
+envy scan my-app
+
+# Scan a specific directory
+envy scan my-monorepo ~/code/my-monorepo
+
+# Preview what would be discovered
+envy scan my-app . --dry-run
+
+# Overwrite an existing project and skip confirmation
+envy scan my-app . --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview discovered files without creating the project. |
+| `--force` | Overwrite an existing project and skip the confirmation prompt. |
+| `--default-env <name>` | Set the default environment. Falls back to `dev` if present, otherwise the first discovered environment. |
+
+Scan maps filenames to environment names using these conventions:
+
+| Filename | Environment |
+|----------|-------------|
+| `.env` | `dev` |
+| `.env.local` | `local` |
+| `.env.dev`, `.env.development` | `dev` |
+| `.env.staging`, `.env.stage` | `staging` |
+| `.env.prod`, `.env.production` | `prod` |
+| `.env.test`, `.env.testing` | `test` |
+| `.env.<other>` | `<other>` |
+
+Directories like `.git`, `node_modules`, `vendor`, `dist`, `build`, `.next`, `target`, `.venv`, `.terraform`, and `.cache` are skipped automatically.
+
+When multiple files in the same directory map to the same environment, the suffixed file takes priority over bare `.env` and a warning is printed.
+
+### envy set
+
+Add or update variables in a project.
+
+```bash
+envy set my-app DB_HOST=localhost DB_PORT=5432
+envy set my-app DB_HOST=staging-db --env staging
+envy set my-app PORT=3000 SERVICE_NAME=api --path services/api
+envy set my-app PORT=3000 --path services/api --env prod
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Target environment. Uses the [environment resolution order](#environment-resolution-order) if omitted. |
+| `--path <subdir>` | Target a monorepo subdirectory instead of the root level. |
+
+Each `KEY=VALUE` argument is an upsert -- safe to re-run.
+
+### envy get
+
+Retrieve a single variable's resolved value (with inheritance applied).
+
+```bash
+envy get my-app DB_HOST
+envy get my-app DB_HOST --env staging
+envy get my-app PORT --path services/api --env dev
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Environment to query. |
+| `--path <subdir>` | Monorepo subpath. Resolution includes inherited root variables. |
+
+Prints the value to stdout with no additional formatting. Returns an error if the key is not found.
+
+### envy load
+
+Write a `.env` file to the current directory from stored config.
+
+```bash
+envy load --project my-app
+envy load --project my-app --env staging
+envy load --project my-app --path services/api
+envy load --project my-app --env prod --output .env.prod
+envy load --project my-app --format export
+envy load --project my-app --force
+envy load --project my-app --dry-run
+envy load --project my-monorepo --all-paths --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project <name>` | Project name (required). |
+| `--env <name>` | Environment. |
+| `--path <subdir>` | Monorepo subpath. |
+| `--output <file>` | Output filename. Default: `.env`. |
+| `--format <fmt>` | Output format: `dotenv` (default) or `export`. |
+| `--force` | Overwrite an existing file without prompting for confirmation. |
+| `--dry-run` | Print the output to stdout instead of writing a file. |
+| `--all-paths` | Write `.env` files for all configured paths. Mutually exclusive with `--path` and `--output`. |
+
+The generated file includes a header comment identifying the project, environment, and path.
+
+When using `--all-paths`, root-level variables are written to `.env` in the current directory. Each configured path gets its own file at `<path>/.env` (e.g. `services/api/.env`), containing root variables merged with path-level overrides. Directories are created automatically. A single confirmation prompt lists all files before writing (skipped with `--force`).
+
+If an environment has a [custom output filename](#envy-env-file) configured, `load` uses that filename instead of `.env`.
+
+### envy update
+
+Read an existing `.env` file and update the stored config from it.
+
+```bash
+envy update --project my-app
+envy update --project my-app --env staging --path services/api
+envy update --project my-app --merge
+envy update --project my-app --file .env.local
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project <name>` | Project name (required). |
+| `--env <name>` | Target environment. |
+| `--path <subdir>` | Target monorepo subpath. |
+| `--merge` | Only add new keys. Existing keys in the store are not overwritten. |
+| `--file <path>` | File to read. Default: `.env`. |
+
+### envy list
+
+List all projects in the config store.
+
+```bash
+envy list
+envy list --json
+envy list --quiet
+```
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON. |
+| `--quiet` | Print project names only, one per line. |
+
+### envy show
+
+Display a project's configuration.
+
+```bash
+envy show my-app
+envy show my-app --env dev
+envy show my-app --env dev --path services/api
+envy show my-app --reveal
+envy show my-app --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Show a specific environment. |
+| `--path <subdir>` | Show resolved variables for a subpath. |
+| `--reveal` | Show actual values instead of masked output (`****`). |
+| `--json` | Output as JSON. |
+
+When neither `--env` nor `--path` is provided, the full project overview is shown, listing all environments and paths with variable counts.
+
+### envy delete
+
+Remove a project configuration entirely.
+
+```bash
+envy delete my-app
+envy delete my-app --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Skip confirmation prompt. |
+
+This deletes the project YAML file from disk. The operation cannot be undone.
+
+### envy env
+
+Manage environments within a project. This command has subcommands for adding, removing, listing, and copying environments, as well as managing custom output filenames.
+
+#### envy env add
+
+```bash
+envy env add my-app staging
+```
+
+Adds an empty environment to the project. Fails if the environment already exists.
+
+#### envy env remove
+
+```bash
+envy env remove my-app staging
+envy env remove my-app staging --force
+```
+
+Removes the environment from both root-level `environments` and all `paths`.
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Skip confirmation prompt. |
+
+#### envy env list
+
+```bash
+envy env list my-app
+```
+
+Lists all environment names in the project, sorted alphabetically. If an environment has a custom output filename, it is shown next to the name.
+
+#### envy env copy
+
+```bash
+envy env copy my-app --from dev --to staging
+```
+
+Copies all root-level variables from the source environment to the destination. If the destination environment does not exist, it is created. Existing keys in the destination are overwritten.
+
+| Flag | Description |
+|------|-------------|
+| `--from <name>` | Source environment (required). |
+| `--to <name>` | Destination environment (required). |
+
+#### envy env file
+
+Manage custom output filenames for environments. By default, `envy load` writes to `.env`. Custom filenames let you map environments to files like `.env.local` or `.env.production`.
+
+##### envy env file set
+
+```bash
+envy env file set my-app production .env.production
+```
+
+Sets the output filename for an environment. When `envy load` targets this environment, it writes to the specified filename instead of `.env`.
+
+##### envy env file clear
+
+```bash
+envy env file clear my-app production
+```
+
+Removes the custom output filename, reverting to the default `.env`.
+
+### envy diff
+
+Compare environments or compare the local `.env` file against stored config.
+
+```bash
+envy diff my-app --env dev --env staging
+envy diff my-app --env dev
+envy diff my-app --env dev --env staging --reveal
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Environment(s) to compare (repeatable). One `--env` compares local `.env` against that environment. Two `--env` flags compare those two environments. |
+| `--reveal` | Show actual values instead of masked output. |
+
+Output uses `+` for added keys, `-` for removed keys, and `~` for changed values.
+
+### envy encrypt
+
+Enable encryption on an existing project.
+
+```bash
+envy encrypt my-app
+```
+
+All existing variable values are encrypted in place. Prompts for a passphrase (twice, for confirmation). Fails if the project is already encrypted.
+
+### envy decrypt
+
+Disable encryption and store values as plaintext.
+
+```bash
+envy decrypt my-app
+```
+
+All values are decrypted and the `encryption` block is removed from the YAML file. Fails if the project is not encrypted.
+
+### envy rekey
+
+Change the encryption passphrase.
+
+```bash
+envy rekey my-app
+```
+
+Decrypts all values with the old passphrase, generates a new salt, and re-encrypts with the new passphrase. Fails if the project is not encrypted.
+
+### envy version
+
+Print the version string.
+
+```bash
+envy version
+```
+
+## Concepts
+
+### Config store
 
 All project configurations live as YAML files in a single directory:
 
@@ -44,14 +400,9 @@ All project configurations live as YAML files in a single directory:
     my-monorepo.yaml
 ```
 
-The base config directory defaults to `~/.config/envy` (using `os.UserConfigDir()` on the current platform). Override it by setting the `ENVY_CONFIG_DIR` environment variable:
+The base config directory defaults to `~/.config/envy` (using `os.UserConfigDir()` on the current platform). Override it by setting `ENVY_CONFIG_DIR`.
 
-```bash
-export ENVY_CONFIG_DIR=/path/to/custom/config
-# Projects will be stored under /path/to/custom/config/projects/
-```
-
-## Data model
+### Data model
 
 Each project YAML file has this structure:
 
@@ -70,10 +421,6 @@ environments:
     DATABASE_URL: "postgres://staging-db:5432/myapp"
     API_KEY: "staging-key-456"
     DEBUG: "false"
-  prod:
-    DATABASE_URL: "postgres://prod-db:5432/myapp"
-    API_KEY: "prod-key-789"
-    DEBUG: "false"
 
 paths:
   services/api:
@@ -81,9 +428,6 @@ paths:
       PORT: "3000"
       SERVICE_NAME: "api"
       DATABASE_URL: "postgres://localhost:5432/api_dev"
-    staging:
-      PORT: "3000"
-      SERVICE_NAME: "api"
   services/worker:
     dev:
       PORT: "3001"
@@ -95,7 +439,7 @@ Project names must start with an alphanumeric character and contain only alphanu
 
 All values are stored as strings. Values can optionally be encrypted at rest -- see [Encryption](#encryption) below.
 
-## Variable inheritance
+### Variable inheritance
 
 When loading variables for a path (e.g. `services/api`) in a given environment (e.g. `dev`):
 
@@ -105,7 +449,7 @@ When loading variables for a path (e.g. `services/api`) in a given environment (
 
 This means subdirectories automatically inherit every root variable and only need to declare what differs. If a path has no overrides for the target environment, the root variables are returned without error.
 
-## Environment resolution order
+### Environment resolution order
 
 When a command needs to determine which environment to use, the following precedence applies:
 
@@ -113,319 +457,6 @@ When a command needs to determine which environment to use, the following preced
 2. The `ENVY_ENV` environment variable.
 3. The `default_env` field in the project config.
 4. `dev` as a final fallback.
-
-## Quick start
-
-If you have a repo with `.env` files already configured, you can capture them and replay them into any clone in two commands:
-
-```bash
-# 1. In the repo with existing .env files, scan and store everything
-cd ~/code/my-monorepo
-envy scan my-monorepo .
-
-# 2. In a fresh clone (or any other checkout), load all .env files
-cd ~/code/my-monorepo-clone
-envy load --project my-monorepo --all-paths --force
-```
-
-`scan` walks the directory tree, discovers all `.env` and `.env.*` files, maps them to environments and monorepo subpaths, and stores the result in `~/.config/envy/projects/my-monorepo.yaml`. `load --all-paths` writes `.env` files back out for every configured path, creating subdirectories as needed.
-
-## Commands
-
-### envy init
-
-Create a new project configuration.
-
-```bash
-# Minimal: creates project with a single "dev" environment
-envy init my-app
-
-# Multiple environments
-envy init my-app --env dev --env staging --env prod
-
-# With monorepo subpath stubs
-envy init my-monorepo --path services/api --path services/worker
-
-# Set a specific default environment
-envy init my-app --env dev --env staging --default-env staging
-
-# Create an encrypted project from the start
-envy init my-app --encrypt
-```
-
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Environments to create (repeatable). Defaults to `dev` if omitted. |
-| `--path <subdir>` | Monorepo subpath stubs to create (repeatable). |
-| `--default-env <name>` | Set the default environment. Defaults to the first `--env` value, or `dev`. |
-| `--encrypt` | Enable encryption on the new project. Prompts for a passphrase. |
-
-Fails if a project with the same name already exists.
-
-### envy set
-
-Add or update variables in a project.
-
-```bash
-# Set root-level variables in the default environment
-envy set my-app DB_HOST=localhost DB_PORT=5432
-
-# Set in a specific environment
-envy set my-app DB_HOST=staging-db --env staging
-
-# Set path-level overrides for the default environment
-envy set my-app PORT=3000 SERVICE_NAME=api --path services/api
-
-# Set path-level overrides for a specific environment
-envy set my-app PORT=3000 --path services/api --env prod
-```
-
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Target environment. Uses the environment resolution order if omitted. |
-| `--path <subdir>` | Target a monorepo subdirectory instead of the root level. |
-
-Each `KEY=VALUE` argument is an upsert -- safe to re-run.
-
-### envy get
-
-Retrieve a single variable's resolved value (with inheritance applied).
-
-```bash
-# Get from the default environment, root level
-envy get my-app DB_HOST
-
-# Get from a specific environment
-envy get my-app DB_HOST --env staging
-
-# Get with path inheritance applied
-envy get my-app PORT --path services/api --env dev
-```
-
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Environment to query. |
-| `--path <subdir>` | Monorepo subpath. Resolution includes inherited root variables. |
-
-Prints the value to stdout with no additional formatting. Returns an error if the key is not found.
-
-### envy load
-
-Write a `.env` file to the current directory from stored config.
-
-```bash
-# Write .env using the default environment, root-level variables
-envy load --project my-app
-
-# Use a specific environment
-envy load --project my-app --env staging
-
-# Include path-level overrides (merged with root)
-envy load --project my-app --path services/api
-
-# Custom output filename
-envy load --project my-app --env prod --output .env.prod
-
-# Output in export format (export KEY="value")
-envy load --project my-app --format export
-
-# Overwrite without confirmation prompt
-envy load --project my-app --force
-
-# Preview to stdout without writing a file
-envy load --project my-app --dry-run
-
-# Write .env files for all configured paths at once
-envy load --project my-monorepo --all-paths --force
-
-# Preview all paths without writing
-envy load --project my-monorepo --all-paths --dry-run
-```
-
-| Flag | Description |
-|------|-------------|
-| `--project <name>` | Project name (required). |
-| `--env <name>` | Environment. |
-| `--path <subdir>` | Monorepo subpath. |
-| `--output <file>` | Output filename. Default: `.env`. |
-| `--format <fmt>` | Output format: `dotenv` (default) or `export`. |
-| `--force` | Overwrite an existing file without prompting for confirmation. |
-| `--dry-run` | Print the output to stdout instead of writing a file. |
-| `--all-paths` | Write `.env` files for all configured paths. Mutually exclusive with `--path` and `--output`. |
-
-The generated file includes a header comment identifying the project, environment, and path.
-
-When using `--all-paths`, root-level variables are written to `.env` in the current directory. Each configured path gets its own file at `<path>/.env` (e.g. `services/api/.env`), containing root variables merged with path-level overrides. Directories are created automatically. A single confirmation prompt lists all files before writing (skipped with `--force`).
-
-### envy update
-
-Read an existing `.env` file and update the stored config from it.
-
-```bash
-# Read .env from the current directory, update the default environment
-envy update --project my-app
-
-# Update a specific environment and path
-envy update --project my-app --env staging --path services/api
-
-# Only add new keys; do not overwrite existing values
-envy update --project my-app --merge
-
-# Read from a specific file instead of .env
-envy update --project my-app --file .env.local
-```
-
-| Flag | Description |
-|------|-------------|
-| `--project <name>` | Project name (required). |
-| `--env <name>` | Target environment. |
-| `--path <subdir>` | Target monorepo subpath. |
-| `--merge` | Only add new keys. Existing keys in the store are not overwritten. |
-| `--file <path>` | File to read. Default: `.env`. |
-
-### envy list
-
-List all projects in the config store.
-
-```bash
-# Default output
-envy list
-# my-app              (envs: dev, staging, prod)
-# my-monorepo         (envs: dev, staging, prod) [2 path(s)]
-
-# JSON output
-envy list --json
-
-# Project names only, one per line
-envy list --quiet
-```
-
-| Flag | Description |
-|------|-------------|
-| `--json` | Output as JSON. |
-| `--quiet` | Print project names only, one per line. |
-
-### envy show
-
-Display a project's configuration.
-
-```bash
-# Full project overview (values masked by default)
-envy show my-app
-
-# Show a specific environment's variables
-envy show my-app --env dev
-
-# Show resolved variables for a subpath (with inheritance)
-envy show my-app --env dev --path services/api
-
-# Reveal actual values
-envy show my-app --reveal
-
-# JSON output
-envy show my-app --json
-```
-
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Show a specific environment. |
-| `--path <subdir>` | Show resolved variables for a subpath. |
-| `--reveal` | Show actual values instead of masked output (`****`). |
-| `--json` | Output as JSON. |
-
-When neither `--env` nor `--path` is provided, the full project overview is shown, listing all environments and paths with variable counts.
-
-### envy delete
-
-Remove a project configuration entirely.
-
-```bash
-# Prompts for confirmation
-envy delete my-app
-
-# Skip confirmation
-envy delete my-app --force
-```
-
-| Flag | Description |
-|------|-------------|
-| `--force` | Skip confirmation prompt. |
-
-This deletes the project YAML file from disk. The operation cannot be undone.
-
-### envy env
-
-Manage environments within a project. This command has four subcommands.
-
-#### envy env add
-
-```bash
-envy env add my-app staging
-```
-
-Adds an empty environment to the project. Fails if the environment already exists.
-
-#### envy env remove
-
-```bash
-# Prompts for confirmation
-envy env remove my-app staging
-
-# Skip confirmation
-envy env remove my-app staging --force
-```
-
-Removes the environment from both root-level `environments` and all `paths`.
-
-| Flag | Description |
-|------|-------------|
-| `--force` | Skip confirmation prompt. |
-
-#### envy env list
-
-```bash
-envy env list my-app
-# dev
-# staging
-# prod
-```
-
-Lists all environment names in the project, sorted alphabetically.
-
-#### envy env copy
-
-```bash
-envy env copy my-app --from dev --to staging
-```
-
-Copies all root-level variables from the source environment to the destination. If the destination environment does not exist, it is created. Existing keys in the destination are overwritten.
-
-| Flag | Description |
-|------|-------------|
-| `--from <name>` | Source environment (required). |
-| `--to <name>` | Destination environment (required). |
-
-### envy diff
-
-Compare environments or compare the local `.env` file against stored config.
-
-```bash
-# Compare two stored environments
-envy diff my-app --env dev --env staging
-
-# Compare local .env against a stored environment
-envy diff my-app --env dev
-
-# Show actual values in the diff output
-envy diff my-app --env dev --env staging --reveal
-```
-
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Environment(s) to compare (repeatable). One `--env` compares local `.env` against that environment. Two `--env` flags compare those two environments. |
-| `--reveal` | Show actual values instead of masked output. |
-
-Output uses `+` for added keys, `-` for removed keys, and `~` for changed values.
 
 ## Encryption
 
@@ -463,46 +494,7 @@ environments:
 
 Each value has a unique random nonce, so encrypting the same plaintext twice produces different ciphertexts.
 
-### envy encrypt
-
-Enable encryption on an existing project.
-
-```bash
-envy encrypt my-app
-# Prompts for passphrase (twice, for confirmation)
-```
-
-All existing variable values are encrypted in place. The project's YAML file is rewritten with the `encryption` block and `ENC:`-prefixed values.
-
-Fails if the project is already encrypted.
-
-### envy decrypt
-
-Disable encryption and store values as plaintext.
-
-```bash
-envy decrypt my-app
-# Prompts for passphrase
-```
-
-All values are decrypted and the `encryption` block is removed from the YAML file.
-
-Fails if the project is not encrypted.
-
-### envy rekey
-
-Change the encryption passphrase.
-
-```bash
-envy rekey my-app
-# Prompts for current passphrase, then new passphrase (twice)
-```
-
-Decrypts all values with the old passphrase, generates a new salt, and re-encrypts with the new passphrase.
-
-Fails if the project is not encrypted.
-
-### Encryption workflow example
+### Encryption workflow
 
 ```bash
 # Create a project and add some secrets
@@ -532,45 +524,30 @@ Alternatively, create an encrypted project from the start:
 ```bash
 envy init my-api --encrypt --env dev --env prod
 envy set my-api DB_PASSWORD=hunter2 --env dev
-# Values are encrypted on disk immediately
 ```
 
-## Example workflow
+## Environment variables
 
-```bash
-# 1. Create a project with multiple environments and paths
-envy init my-monorepo --env dev --env staging --env prod \
-    --path services/api --path services/worker
-
-# 2. Set shared root-level variables
-envy set my-monorepo DATABASE_URL=postgres://localhost/dev DEBUG=true --env dev
-envy set my-monorepo DATABASE_URL=postgres://staging-db/app --env staging
-envy set my-monorepo DATABASE_URL=postgres://prod-db/app --env prod
-
-# 3. Set service-specific overrides
-envy set my-monorepo PORT=3000 SERVICE_NAME=api --path services/api
-envy set my-monorepo PORT=3001 SERVICE_NAME=worker QUEUE_URL=redis://localhost \
-    --path services/worker
-
-# 4. Generate .env for the API service in the dev environment
-cd ~/code/my-monorepo/services/api
-envy load --project my-monorepo --path services/api --env dev
-# .env now contains merged root dev vars + api-specific overrides
-
-# 5. After editing .env locally, push changes back to the store
-envy update --project my-monorepo --path services/api --env dev
-
-# 6. Compare environments
-envy diff my-monorepo --env dev --env staging
-
-# 7. Check a single resolved value
-envy get my-monorepo PORT --path services/api
-# 3000
-```
+| Variable | Description |
+|----------|-------------|
+| `ENVY_CONFIG_DIR` | Override the default config directory (`~/.config/envy`). When set, projects are stored under `$ENVY_CONFIG_DIR/projects/`. |
+| `ENVY_ENV` | Default environment for commands that accept `--env`. Overridden by `--env` flag and by a project's `default_env`. |
+| `ENVY_PASSPHRASE` | Encryption passphrase for non-interactive use (CI, scripting). When unset, envy prompts on the terminal. |
 
 ## LLM reference
 
 Run `envy --llm` to print a comprehensive plain-text reference covering all commands, flags, concepts, and workflows. The output is designed for LLMs to consume as context when assisting with envy usage.
+
+## A note on scope
+
+Envy is designed for engineers juggling multiple hobby or side projects who need a simple, local-first way to manage `.env` files. It is not intended as a production secret management solution.
+
+For production workloads, consider a dedicated secrets manager such as:
+
+- [HashiCorp Vault](https://www.vaultproject.io/) -- self-hosted or managed (HCP Vault), with fine-grained access policies and audit logging.
+- [Doppler](https://www.doppler.com/) -- SaaS platform purpose-built for syncing secrets across environments and CI/CD pipelines.
+- [Infisical](https://infisical.com/) -- open-source secret management with native integrations for most deployment platforms.
+- Cloud-provider offerings: [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), [Google Cloud Secret Manager](https://cloud.google.com/secret-manager), or [Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/).
 
 ## Licence
 
