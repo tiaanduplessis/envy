@@ -260,7 +260,6 @@ func TestScanCmd_PopulatesEnvFiles(t *testing.T) {
 		t.Fatalf("loading project: %v", err)
 	}
 
-	// .env.local and .env.staging should have env file mappings
 	if got := p.EnvFiles["local"]; got != ".env.local" {
 		t.Errorf("EnvFiles[local] = %q, want %q", got, ".env.local")
 	}
@@ -268,7 +267,6 @@ func TestScanCmd_PopulatesEnvFiles(t *testing.T) {
 		t.Errorf("EnvFiles[staging] = %q, want %q", got, ".env.staging")
 	}
 
-	// Bare .env (mapped to dev) should not have a mapping
 	if _, ok := p.EnvFiles["dev"]; ok {
 		t.Error("bare .env should not create an env file mapping for dev")
 	}

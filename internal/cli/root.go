@@ -5,7 +5,6 @@ import (
 	"github.com/tiaanduplessis/envy/internal/config"
 )
 
-// NewRootCmd creates the top-level envy command with all subcommands wired in.
 func NewRootCmd(store *config.Store) *cobra.Command {
 	var llm bool
 

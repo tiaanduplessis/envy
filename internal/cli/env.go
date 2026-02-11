@@ -100,7 +100,6 @@ func newEnvRemoveCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 
 			delete(p.Environments, envName)
 
-			// Also remove from paths
 			for path := range p.Paths {
 				delete(p.Paths[path], envName)
 			}

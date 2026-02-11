@@ -119,12 +119,10 @@ func TestProject_GetPathVars(t *testing.T) {
 		t.Errorf("got %q, want %q", got, "3000")
 	}
 
-	// Nonexistent path
 	if vars := p.GetPathVars("nonexistent", "dev"); vars != nil {
 		t.Errorf("expected nil for nonexistent path, got %v", vars)
 	}
 
-	// Nonexistent env for existing path
 	if vars := p.GetPathVars("services/api", "prod"); vars != nil {
 		t.Errorf("expected nil for nonexistent env, got %v", vars)
 	}
@@ -138,7 +136,6 @@ func TestProject_SetEnvFile(t *testing.T) {
 		t.Errorf("got %q, want %q", got, ".env.local")
 	}
 
-	// Overwrite existing
 	p.SetEnvFile("local", ".env.local.override")
 	if got := p.EnvFiles["local"]; got != ".env.local.override" {
 		t.Errorf("got %q, want %q", got, ".env.local.override")

@@ -18,7 +18,6 @@ func ConfigDir() (string, error) {
 	return filepath.Join(base, "envy"), nil
 }
 
-// ProjectsDir returns the directory where project YAML files are stored.
 func ProjectsDir() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {

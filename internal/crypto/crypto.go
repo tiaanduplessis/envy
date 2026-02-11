@@ -46,7 +46,6 @@ func DefaultParams() Params {
 	}
 }
 
-// DeriveKey derives a 256-bit key from a passphrase and salt using Argon2id.
 func DeriveKey(passphrase string, salt []byte, params Params) []byte {
 	return argon2.IDKey(
 		[]byte(passphrase), salt, params.Time, params.Memory, params.Threads, argonKeyLen,
@@ -119,7 +118,6 @@ func DecryptValue(key []byte, encrypted string) (string, error) {
 	return string(plaintext), nil
 }
 
-// IsEncrypted reports whether a value carries the ENC: prefix.
 func IsEncrypted(value string) bool {
 	return strings.HasPrefix(value, EncryptedPrefix)
 }

@@ -24,7 +24,6 @@ func TestRekeyCmd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Use the internal constructor with injectable passphrase funcs
 	rekeyCmd := newRekeyCmd(store,
 		func(string) (string, error) { return "old-passphrase", nil },
 		func() (string, error) { return "new-passphrase", nil },
@@ -37,7 +36,6 @@ func TestRekeyCmd(t *testing.T) {
 		t.Errorf("expected success message, got %q", out)
 	}
 
-	// Verify the new passphrase works
 	raw, err := store.LoadRaw("myapp")
 	if err != nil {
 		t.Fatal(err)
@@ -55,7 +53,6 @@ func TestRekeyCmd(t *testing.T) {
 		t.Errorf("SECRET = %q, want %q", decrypted["SECRET"], "hunter2")
 	}
 
-	// Verify the old passphrase no longer works
 	oldSalt, _ := base64.StdEncoding.DecodeString(raw.Encryption.Salt)
 	oldKey := crypto.DeriveKey("old-passphrase", oldSalt, raw.Encryption.Params)
 	_, err = crypto.DecryptMap(oldKey, raw.Environments["dev"])

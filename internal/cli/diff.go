@@ -11,14 +11,12 @@ import (
 	"github.com/tiaanduplessis/envy/internal/util"
 )
 
-// DiffResult holds the structured diff between two variable sets.
 type DiffResult struct {
 	Added   map[string]string            // keys only in right
 	Removed map[string]string            // keys only in left
 	Changed map[string][2]string         // keys in both with different values: [left, right]
 }
 
-// ComputeDiff compares two variable maps and returns the differences.
 func ComputeDiff(left, right map[string]string) DiffResult {
 	result := DiffResult{
 		Added:   make(map[string]string),
@@ -44,7 +42,6 @@ func ComputeDiff(left, right map[string]string) DiffResult {
 	return result
 }
 
-// IsEmpty returns true if there are no differences.
 func (d DiffResult) IsEmpty() bool {
 	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Changed) == 0
 }
@@ -70,7 +67,6 @@ func NewDiffCmd(store *config.Store) *cobra.Command {
 			var leftLabel, rightLabel string
 
 			if len(envs) == 2 {
-				// Compare two environments
 				left, err = config.ResolveVars(p, envs[0], "")
 				if err != nil {
 					return err
@@ -82,7 +78,6 @@ func NewDiffCmd(store *config.Store) *cobra.Command {
 				leftLabel = envs[0]
 				rightLabel = envs[1]
 			} else if len(envs) == 1 {
-				// Compare local .env against stored env
 				f, err := os.Open(".env")
 				if err != nil {
 					return fmt.Errorf("opening .env: %w", err)

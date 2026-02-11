@@ -14,8 +14,6 @@ func MaskValue(s string) string {
 	return string(s[0]) + "****" + string(s[len(s)-1])
 }
 
-// FormatKeyValue formats a key-value pair for display. If reveal is false,
-// the value is masked.
 func FormatKeyValue(key, value string, reveal bool) string {
 	if reveal {
 		return fmt.Sprintf("%s=%s", key, value)

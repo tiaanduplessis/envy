@@ -28,7 +28,6 @@ func NewUpdateCmd(store *config.Store) *cobra.Command {
 
 			targetEnv := config.ResolveEnv(env, p.DefaultEnv)
 
-			// Ensure the environment exists
 			if p.Environments[targetEnv] == nil {
 				p.Environments[targetEnv] = make(map[string]string)
 			}

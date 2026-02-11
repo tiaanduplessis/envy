@@ -38,7 +38,6 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 				return err
 			}
 
-			// Specific env + path: show resolved vars
 			if env != "" || path != "" {
 				targetEnv := config.ResolveEnv(env, p.DefaultEnv)
 				vars, err := config.ResolveVars(p, targetEnv, path)
@@ -59,7 +58,6 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 				return nil
 			}
 
-			// Full project overview
 			if jsonOutput {
 				output := showOutput{
 					Name:         p.Name,

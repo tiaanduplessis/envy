@@ -25,7 +25,6 @@ func Parse(r io.Reader) (map[string]string, error) {
 			continue
 		}
 
-		// Strip optional export prefix
 		if strings.HasPrefix(line, "export ") {
 			line = strings.TrimPrefix(line, "export ")
 			line = strings.TrimSpace(line)
@@ -61,7 +60,6 @@ func parseValue(raw string) (string, error) {
 		return "", nil
 	}
 
-	// Double-quoted value
 	if strings.HasPrefix(raw, "\"") {
 		return parseDoubleQuoted(raw[1:])
 	}
@@ -75,7 +73,6 @@ func parseValue(raw string) (string, error) {
 		return raw[1 : end+1], nil
 	}
 
-	// Bare value: strip inline comments (# preceded by whitespace)
 	value := stripInlineComment(raw)
 	return strings.TrimRight(value, " \t"), nil
 }

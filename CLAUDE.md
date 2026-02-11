@@ -40,3 +40,10 @@ Envy is a local-first CLI for managing `.env` files from a centralised YAML conf
 - Variable inheritance: path-level vars are merged on top of root-level env vars at resolution time, not at storage time. The store keeps them separate.
 - Encryption is transparent: `Store.Load` decrypts, `Store.Save` encrypts a deep copy (caller's in-memory Project stays plaintext). Commands that manage encryption directly (encrypt, decrypt, rekey) use `LoadRaw`/`SaveRaw` to bypass the automatic encrypt/decrypt.
 - CLI commands that need injectable I/O for testing use a `newXxxCmd(store, fn)` internal constructor alongside the public `NewXxxCmd(store)`. The public constructor passes `nil` for the func, which falls back to the production implementation.
+
+### Code comments
+
+- Do not add godoc comments that merely restate the function/type name. For example, `// Delete removes a project file from disk.` on `func (s *Store) Delete(name string) error` adds nothing. Only add a doc comment when it conveys information not already obvious from the signature (edge cases, defaults, side effects, format details, priority order).
+- Do not add inline comments that describe what the next line of code does (e.g. `// Ensure the environment exists` before a nil-map check, or `// Strip optional export prefix` before `strings.HasPrefix(line, "export ")`).
+- Do not add section-label comments in tests (e.g. `// Create`, `// Verify round-trip`) when the code is self-explanatory.
+- Comments are welcome when they explain **why** something is done, document non-obvious behaviour, describe algorithm intent, or note caveats the code cannot express through naming or structure alone.

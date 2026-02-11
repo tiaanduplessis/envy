@@ -88,12 +88,10 @@ func TestDiffCmd_AgainstLocalFile(t *testing.T) {
 	p.SetVar("dev", "PORT", "5432")
 	store.Save(p)
 
-	// Create a local .env that differs
 	dir := t.TempDir()
 	envFile := dir + "/.env"
 	os.WriteFile(envFile, []byte("DB=different\nEXTRA=local\n"), 0o644)
 
-	// chdir to the temp dir for the .env file
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
 	defer os.Chdir(origDir)
