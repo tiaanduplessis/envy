@@ -206,6 +206,245 @@ func TestLoadCmd_OutputFlagOverridesMapping(t *testing.T) {
 	}
 }
 
+func TestLoadCmd_AllPaths_DryRun(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	p.SetPathVar("services/web", "dev", "PORT", "4000")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "mono", "--all-paths", "--dry-run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "=== .env ===") {
+		t.Errorf("missing root section header: %q", out)
+	}
+	if !strings.Contains(out, "=== services/api/.env ===") {
+		t.Errorf("missing services/api section header: %q", out)
+	}
+	if !strings.Contains(out, "=== services/web/.env ===") {
+		t.Errorf("missing services/web section header: %q", out)
+	}
+	if !strings.Contains(out, "DB=localhost") {
+		t.Errorf("missing root var DB: %q", out)
+	}
+	if !strings.Contains(out, "PORT=3000") {
+		t.Errorf("missing api PORT: %q", out)
+	}
+	if !strings.Contains(out, "PORT=4000") {
+		t.Errorf("missing web PORT: %q", out)
+	}
+}
+
+func TestLoadCmd_AllPaths_WritesFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	p.SetPathVar("services/web", "dev", "PORT", "4000")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "mono", "--all-paths", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "Wrote") {
+		t.Errorf("missing write confirmation: %q", out)
+	}
+
+	rootData, err := os.ReadFile(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatalf("reading root .env: %v", err)
+	}
+	if !strings.Contains(string(rootData), "DB=localhost") {
+		t.Errorf("root .env missing DB: %q", string(rootData))
+	}
+
+	apiData, err := os.ReadFile(filepath.Join(dir, "services", "api", ".env"))
+	if err != nil {
+		t.Fatalf("reading services/api/.env: %v", err)
+	}
+	if !strings.Contains(string(apiData), "PORT=3000") {
+		t.Errorf("api .env missing PORT: %q", string(apiData))
+	}
+	if !strings.Contains(string(apiData), "DB=localhost") {
+		t.Errorf("api .env missing inherited DB: %q", string(apiData))
+	}
+
+	webData, err := os.ReadFile(filepath.Join(dir, "services", "web", ".env"))
+	if err != nil {
+		t.Fatalf("reading services/web/.env: %v", err)
+	}
+	if !strings.Contains(string(webData), "PORT=4000") {
+		t.Errorf("web .env missing PORT: %q", string(webData))
+	}
+}
+
+func TestLoadCmd_AllPaths_CreatesDirectories(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetPathVar("deep/nested/path", "dev", "KEY", "value")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "load", "--project", "mono", "--all-paths", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	nestedFile := filepath.Join(dir, "deep", "nested", "path", ".env")
+	data, err := os.ReadFile(nestedFile)
+	if err != nil {
+		t.Fatalf("reading nested .env: %v", err)
+	}
+	if !strings.Contains(string(data), "KEY=value") {
+		t.Errorf("nested .env missing KEY: %q", string(data))
+	}
+}
+
+func TestLoadCmd_AllPaths_Confirmation(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	// Decline
+	cmd := newLoadCmd(store, strings.NewReader("n\n"))
+	cmd.SetArgs([]string{"--project", "mono", "--all-paths"})
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.Execute()
+
+	if !strings.Contains(buf.String(), "Aborted") {
+		t.Errorf("expected abort message: %q", buf.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
+		t.Error("root .env should not exist after declining")
+	}
+
+	// Accept
+	cmd = newLoadCmd(store, strings.NewReader("y\n"))
+	cmd.SetArgs([]string{"--project", "mono", "--all-paths"})
+	buf.Reset()
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.Execute()
+
+	if _, err := os.Stat(filepath.Join(dir, ".env")); err != nil {
+		t.Error("root .env should exist after accepting")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "services", "api", ".env")); err != nil {
+		t.Error("services/api/.env should exist after accepting")
+	}
+}
+
+func TestLoadCmd_AllPaths_MutualExclusion(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "load", "--project", "foo",
+		"--all-paths", "--path", "services/api", "--dry-run")
+	if err == nil {
+		t.Error("expected error for --all-paths with --path")
+	}
+
+	root = NewRootCmd(store)
+	_, err = executeCommand(root, "load", "--project", "foo",
+		"--all-paths", "--output", "custom.env", "--dry-run")
+	if err == nil {
+		t.Error("expected error for --all-paths with --output")
+	}
+}
+
+func TestLoadCmd_AllPaths_UsesEnvFileMapping(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev", "local"}, "dev")
+	p.SetVar("local", "DB", "localhost")
+	p.SetPathVar("services/api", "local", "PORT", "3000")
+	p.SetEnvFile("local", ".env.local")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "mono",
+		"--env", "local", "--all-paths", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, ".env.local") {
+		t.Errorf("expected output to reference .env.local: %q", out)
+	}
+
+	rootData, err := os.ReadFile(filepath.Join(dir, ".env.local"))
+	if err != nil {
+		t.Fatalf("reading root .env.local: %v", err)
+	}
+	if !strings.Contains(string(rootData), "DB=localhost") {
+		t.Errorf("root .env.local missing DB: %q", string(rootData))
+	}
+
+	apiData, err := os.ReadFile(filepath.Join(dir, "services", "api", ".env.local"))
+	if err != nil {
+		t.Fatalf("reading services/api/.env.local: %v", err)
+	}
+	if !strings.Contains(string(apiData), "PORT=3000") {
+		t.Errorf("api .env.local missing PORT: %q", string(apiData))
+	}
+}
+
+func TestLoadCmd_AllPaths_RespectsFormat(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "mono",
+		"--all-paths", "--dry-run", "--format", "export")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "export DB=localhost") {
+		t.Errorf("missing export prefix for root DB: %q", out)
+	}
+	if !strings.Contains(out, "export PORT=3000") {
+		t.Errorf("missing export prefix for api PORT: %q", out)
+	}
+}
+
 func TestLoadCmd_NonexistentProject(t *testing.T) {
 	store := setupTestStore(t)
 	root := NewRootCmd(store)
