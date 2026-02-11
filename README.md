@@ -103,6 +103,22 @@ When a command needs to determine which environment to use, the following preced
 3. The `default_env` field in the project config.
 4. `dev` as a final fallback.
 
+## Quick start
+
+If you have a repo with `.env` files already configured, you can capture them and replay them into any clone in two commands:
+
+```bash
+# 1. In the repo with existing .env files, scan and store everything
+cd ~/code/my-monorepo
+envy scan my-monorepo .
+
+# 2. In a fresh clone (or any other checkout), load all .env files
+cd ~/code/my-monorepo-clone
+envy load --project my-monorepo --all-paths --force
+```
+
+`scan` walks the directory tree, discovers all `.env` and `.env.*` files, maps them to environments and monorepo subpaths, and stores the result in `~/.config/envy/projects/my-monorepo.yaml`. `load --all-paths` writes `.env` files back out for every configured path, creating subdirectories as needed.
+
 ## Commands
 
 ### envy init
