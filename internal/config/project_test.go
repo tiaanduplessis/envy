@@ -166,3 +166,59 @@ func TestProject_ClearEnvFile_NilMap(t *testing.T) {
 	// Should not panic
 	p.ClearEnvFile("local")
 }
+
+func TestProject_DeleteVar(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetVar("dev", "PORT", "5432")
+
+	if !p.DeleteVar("dev", "DB") {
+		t.Error("expected DeleteVar to return true for existing key")
+	}
+	if _, ok := p.Environments["dev"]["DB"]; ok {
+		t.Error("expected DB to be deleted")
+	}
+	if got := p.Environments["dev"]["PORT"]; got != "5432" {
+		t.Errorf("PORT = %q, want %q", got, "5432")
+	}
+}
+
+func TestProject_DeleteVar_NonexistentKey(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	if p.DeleteVar("dev", "NOPE") {
+		t.Error("expected DeleteVar to return false for nonexistent key")
+	}
+}
+
+func TestProject_DeleteVar_NilMaps(t *testing.T) {
+	p := &Project{Name: "test", DefaultEnv: "dev"}
+	if p.DeleteVar("dev", "KEY") {
+		t.Error("expected DeleteVar to return false on nil environments")
+	}
+}
+
+func TestProject_DeletePathVar(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	p.SetPathVar("services/api", "dev", "PORT", "3000")
+
+	if !p.DeletePathVar("services/api", "dev", "PORT") {
+		t.Error("expected DeletePathVar to return true for existing key")
+	}
+	if _, ok := p.Paths["services/api"]["dev"]["PORT"]; ok {
+		t.Error("expected PORT to be deleted")
+	}
+}
+
+func TestProject_DeletePathVar_NonexistentKey(t *testing.T) {
+	p, _ := NewProject("test", nil, "")
+	if p.DeletePathVar("services/api", "dev", "NOPE") {
+		t.Error("expected DeletePathVar to return false for nonexistent key")
+	}
+}
+
+func TestProject_DeletePathVar_NilMaps(t *testing.T) {
+	p := &Project{Name: "test", DefaultEnv: "dev"}
+	if p.DeletePathVar("services/api", "dev", "KEY") {
+		t.Error("expected DeletePathVar to return false on nil paths")
+	}
+}

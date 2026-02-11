@@ -14,7 +14,10 @@ func NewGetCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <project> <KEY>",
 		Short: "Get a variable's resolved value",
-		Args:  cobra.ExactArgs(2),
+		Example: `  envy get my-app DB_HOST
+  envy get my-app DB_HOST --env staging
+  envy get my-app PORT --path services/api`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			key := args[1]

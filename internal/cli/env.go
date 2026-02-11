@@ -34,9 +34,10 @@ func newEnvCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 
 func newEnvAddCmd(store *config.Store) *cobra.Command {
 	return &cobra.Command{
-		Use:   "add <project> <environment>",
-		Short: "Add an environment to a project",
-		Args:  cobra.ExactArgs(2),
+		Use:     "add <project> <environment>",
+		Short:   "Add an environment to a project",
+		Example: "  envy env add my-app staging",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, envName := args[0], args[1]
 
@@ -70,7 +71,9 @@ func newEnvRemoveCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <project> <environment>",
 		Short: "Remove an environment from a project",
-		Args:  cobra.ExactArgs(2),
+		Example: `  envy env remove my-app staging
+  envy env remove my-app staging --force`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, envName := args[0], args[1]
 
@@ -123,9 +126,10 @@ func newEnvRemoveCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 
 func newEnvListCmd(store *config.Store) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <project>",
-		Short: "List environments in a project",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <project>",
+		Short:   "List environments in a project",
+		Example: "  envy env list my-app",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p, err := store.Load(args[0])
 			if err != nil {
@@ -156,9 +160,10 @@ func newEnvCopyCmd(store *config.Store) *cobra.Command {
 	var from, to string
 
 	cmd := &cobra.Command{
-		Use:   "copy <project>",
-		Short: "Copy variables from one environment to another",
-		Args:  cobra.ExactArgs(1),
+		Use:     "copy <project>",
+		Short:   "Copy variables from one environment to another",
+		Example: "  envy env copy my-app --from dev --to staging",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
@@ -214,9 +219,10 @@ func newEnvFileCmd(store *config.Store) *cobra.Command {
 
 func newEnvFileSetCmd(store *config.Store) *cobra.Command {
 	return &cobra.Command{
-		Use:   "set <project> <environment> <filename>",
-		Short: "Set the output filename for an environment",
-		Args:  cobra.ExactArgs(3),
+		Use:     "set <project> <environment> <filename>",
+		Short:   "Set the output filename for an environment",
+		Example: "  envy env file set my-app production .env.production",
+		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, envName, filename := args[0], args[1], args[2]
 
@@ -243,9 +249,10 @@ func newEnvFileSetCmd(store *config.Store) *cobra.Command {
 
 func newEnvFileClearCmd(store *config.Store) *cobra.Command {
 	return &cobra.Command{
-		Use:   "clear <project> <environment>",
-		Short: "Clear the output filename for an environment",
-		Args:  cobra.ExactArgs(2),
+		Use:     "clear <project> <environment>",
+		Short:   "Clear the output filename for an environment",
+		Example: "  envy env file clear my-app production",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, envName := args[0], args[1]
 

@@ -118,6 +118,30 @@ func (p *Project) SetEnvFile(env, filename string) {
 	p.UpdatedAt = time.Now().UTC()
 }
 
+func (p *Project) DeleteVar(env, key string) bool {
+	if p.Environments == nil || p.Environments[env] == nil {
+		return false
+	}
+	if _, ok := p.Environments[env][key]; !ok {
+		return false
+	}
+	delete(p.Environments[env], key)
+	p.UpdatedAt = time.Now().UTC()
+	return true
+}
+
+func (p *Project) DeletePathVar(path, env, key string) bool {
+	if p.Paths == nil || p.Paths[path] == nil || p.Paths[path][env] == nil {
+		return false
+	}
+	if _, ok := p.Paths[path][env][key]; !ok {
+		return false
+	}
+	delete(p.Paths[path][env], key)
+	p.UpdatedAt = time.Now().UTC()
+	return true
+}
+
 func (p *Project) ClearEnvFile(env string) {
 	if p.EnvFiles == nil {
 		return

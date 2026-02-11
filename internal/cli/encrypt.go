@@ -16,9 +16,10 @@ func NewEncryptCmd(store *config.Store) *cobra.Command {
 
 func newEncryptCmd(store *config.Store, getPass func() (string, error)) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "encrypt <project>",
-		Short: "Enable encryption on a project",
-		Args:  cobra.ExactArgs(1),
+		Use:     "encrypt <project>",
+		Short:   "Enable encryption on a project",
+		Example: "  envy encrypt my-app",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 

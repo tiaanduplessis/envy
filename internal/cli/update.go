@@ -19,7 +19,9 @@ func NewUpdateCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update stored config from a .env file",
-		Args:  cobra.NoArgs,
+		Example: `  envy update --project my-app --file .env --env dev
+  envy update --project my-app --merge`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p, err := store.Load(project)
 			if err != nil {

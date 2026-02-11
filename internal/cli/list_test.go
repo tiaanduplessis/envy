@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -93,5 +96,34 @@ func TestListCmd_EmptyJSON(t *testing.T) {
 	}
 	if strings.TrimSpace(out) != "[]" {
 		t.Errorf("output = %q, want %q", strings.TrimSpace(out), "[]")
+	}
+}
+
+func TestListCmd_CorruptProject(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "projects")
+	store := config.NewStore(dir)
+
+	p, _ := config.NewProject("good", nil, "")
+	store.Save(p)
+
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("invalid: [yaml"), 0o600)
+
+	root := NewRootCmd(store)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"list"})
+
+	err := root.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "good") {
+		t.Errorf("stdout = %q, expected to contain 'good'", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Warning") || !strings.Contains(stderr.String(), "bad") {
+		t.Errorf("stderr = %q, expected warning about 'bad'", stderr.String())
 	}
 }

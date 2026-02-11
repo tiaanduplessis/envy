@@ -16,9 +16,10 @@ func NewRekeyCmd(store *config.Store) *cobra.Command {
 
 func newRekeyCmd(store *config.Store, getOldPass func(string) (string, error), getNewPass func() (string, error)) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rekey <project>",
-		Short: "Change the encryption passphrase for a project",
-		Args:  cobra.ExactArgs(1),
+		Use:     "rekey <project>",
+		Short:   "Change the encryption passphrase for a project",
+		Example: "  envy rekey my-app",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
