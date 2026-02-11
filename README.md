@@ -203,6 +203,12 @@ envy load --project my-app --force
 
 # Preview to stdout without writing a file
 envy load --project my-app --dry-run
+
+# Write .env files for all configured paths at once
+envy load --project my-monorepo --all-paths --force
+
+# Preview all paths without writing
+envy load --project my-monorepo --all-paths --dry-run
 ```
 
 | Flag | Description |
@@ -214,8 +220,11 @@ envy load --project my-app --dry-run
 | `--format <fmt>` | Output format: `dotenv` (default) or `export`. |
 | `--force` | Overwrite an existing file without prompting for confirmation. |
 | `--dry-run` | Print the output to stdout instead of writing a file. |
+| `--all-paths` | Write `.env` files for all configured paths. Mutually exclusive with `--path` and `--output`. |
 
 The generated file includes a header comment identifying the project, environment, and path.
+
+When using `--all-paths`, root-level variables are written to `.env` in the current directory. Each configured path gets its own file at `<path>/.env` (e.g. `services/api/.env`), containing root variables merged with path-level overrides. Directories are created automatically. A single confirmation prompt lists all files before writing (skipped with `--force`).
 
 ### envy update
 
