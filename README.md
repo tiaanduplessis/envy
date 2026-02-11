@@ -557,6 +557,10 @@ envy get my-monorepo PORT --path services/api
 # 3000
 ```
 
+## LLM reference
+
+Run `envy --llm` to print a comprehensive plain-text reference covering all commands, flags, concepts, and workflows. The output is designed for LLMs to consume as context when assisting with envy usage.
+
 ## Licence
 
 See [LICENSE](LICENSE).
