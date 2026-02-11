@@ -10,6 +10,8 @@ import (
 	"github.com/tiaanduplessis/envy/internal/util"
 )
 
+var version = "dev"
+
 func main() {
 	dir, err := util.ProjectsDir()
 	if err != nil {
@@ -20,6 +22,7 @@ func main() {
 	store := config.NewStore(dir)
 	store.SetPassphraseFunc(crypto.GetPassphrase)
 	cmd := cli.NewRootCmd(store)
+	cmd.AddCommand(cli.NewVersionCmd(version))
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
