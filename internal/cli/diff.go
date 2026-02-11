@@ -53,7 +53,9 @@ func NewDiffCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff <project>",
 		Short: "Compare environments or local .env against stored config",
-		Args:  cobra.ExactArgs(1),
+		Example: `  envy diff my-app --env dev --env staging
+  envy diff my-app --env dev`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			out := cmd.OutOrStdout()

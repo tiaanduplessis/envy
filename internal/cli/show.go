@@ -28,7 +28,10 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <project>",
 		Short: "Show a project's configuration",
-		Args:  cobra.ExactArgs(1),
+		Example: `  envy show my-app
+  envy show my-app --env dev --reveal
+  envy show my-app --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			out := cmd.OutOrStdout()

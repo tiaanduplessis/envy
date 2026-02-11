@@ -130,10 +130,6 @@ type flagInfo struct {
 
 func collectFlags(cmd *cobra.Command) []flagInfo {
 	var flags []flagInfo
-	required := make(map[string]bool)
-	if ann := cmd.Annotations; ann != nil {
-		// Cobra stores required flags in annotations on the command
-	}
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if f.Hidden {
 			return
@@ -144,7 +140,6 @@ func collectFlags(cmd *cobra.Command) []flagInfo {
 			typeName:  f.Value.Type(),
 			defValue:  f.DefValue,
 			usage:     f.Usage,
-			required:  required[f.Name],
 		})
 	})
 
@@ -177,6 +172,10 @@ func writeWorkflows(w io.Writer) {
 ### Scan a directory to auto-discover .env files
   envy scan myapp ./path/to/project
   envy load --project myapp
+
+### Remove variables
+  envy unset myapp DB_HOST --env dev
+  envy unset myapp PORT --path services/api --env dev
 
 ### Compare environments
   envy diff myapp --env dev --env staging

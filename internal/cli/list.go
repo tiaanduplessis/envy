@@ -23,7 +23,10 @@ func NewListCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all projects",
-		Args:  cobra.NoArgs,
+		Example: `  envy list
+  envy list --json
+  envy list --quiet`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			names, err := store.List()
 			if err != nil {
@@ -51,6 +54,7 @@ func NewListCmd(store *config.Store) *cobra.Command {
 			for _, name := range names {
 				p, err := store.Load(name)
 				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipping %q: %v\n", name, err)
 					continue
 				}
 

@@ -29,7 +29,10 @@ func newLoadCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "load",
 		Short: "Write a .env file from stored config",
-		Args:  cobra.NoArgs,
+		Example: `  envy load --project my-app
+  envy load --project my-app --env staging --dry-run
+  envy load --project my-app --all-paths --force`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if allPaths && path != "" {
 				return fmt.Errorf("--all-paths and --path are mutually exclusive")

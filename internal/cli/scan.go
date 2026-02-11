@@ -26,7 +26,10 @@ func newScanCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan <project> [directory]",
 		Short: "Create a project by scanning a directory for .env files",
-		Args:  cobra.RangeArgs(1, 2),
+		Example: `  envy scan my-app .
+  envy scan my-app ~/code/my-monorepo
+  envy scan my-app . --dry-run`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 

@@ -166,6 +166,23 @@ envy set my-app PORT=3000 --path services/api --env prod
 
 Each `KEY=VALUE` argument is an upsert -- safe to re-run.
 
+### envy unset
+
+Remove variables from a project.
+
+```bash
+envy unset my-app DB_HOST
+envy unset my-app DB_HOST DB_PORT --env staging
+envy unset my-app PORT --path services/api
+```
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Target environment. Uses the [environment resolution order](#environment-resolution-order) if omitted. |
+| `--path <subdir>` | Target a monorepo subdirectory instead of the root level. |
+
+The operation is idempotent -- unsetting a key that does not exist is not an error. The output reports how many keys were actually removed.
+
 ### envy get
 
 Retrieve a single variable's resolved value (with inheritance applied).
@@ -400,11 +417,13 @@ Decrypts all values with the old passphrase, generates a new salt, and re-encryp
 
 ### envy version
 
-Print the version string.
+Print version and build information.
 
 ```bash
 envy version
 ```
+
+Output includes the version, git commit, build date, and Go version (when available).
 
 ## Concepts
 

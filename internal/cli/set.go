@@ -15,7 +15,10 @@ func NewSetCmd(store *config.Store) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <project> KEY=VALUE [KEY=VALUE ...]",
 		Short: "Set variables in a project",
-		Args:  cobra.MinimumNArgs(2),
+		Example: `  envy set my-app DB_HOST=localhost DB_PORT=5432
+  envy set my-app DB_HOST=staging-db --env staging
+  envy set my-app PORT=3000 --path services/api`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			pairs := args[1:]

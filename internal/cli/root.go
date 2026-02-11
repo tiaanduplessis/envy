@@ -29,6 +29,7 @@ func NewRootCmd(store *config.Store) *cobra.Command {
 		NewInitCmd(store),
 		NewScanCmd(store),
 		NewSetCmd(store),
+		NewUnsetCmd(store),
 		NewGetCmd(store),
 		NewListCmd(store),
 		NewShowCmd(store),

@@ -20,7 +20,9 @@ func newDeleteCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <project>",
 		Short: "Delete a project",
-		Args:  cobra.ExactArgs(1),
+		Example: `  envy delete my-app
+  envy delete my-app --force`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 

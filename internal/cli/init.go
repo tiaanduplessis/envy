@@ -22,7 +22,10 @@ func newInitCmd(store *config.Store, getPass func() (string, error)) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:   "init <project>",
 		Short: "Create a new project configuration",
-		Args:  cobra.ExactArgs(1),
+		Example: `  envy init my-app
+  envy init my-app --env dev --env staging --env prod
+  envy init my-app --encrypt`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
