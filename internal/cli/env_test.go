@@ -175,6 +175,101 @@ func TestEnvCopyCmd_NonexistentSource(t *testing.T) {
 	}
 }
 
+func TestEnvFileSetCmd(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local"}, "dev")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "env", "file", "set", "foo", "local", ".env.local")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, ".env.local") {
+		t.Errorf("output = %q", out)
+	}
+
+	p, _ = store.Load("foo")
+	if got := p.EnvFiles["local"]; got != ".env.local" {
+		t.Errorf("EnvFiles[local] = %q, want %q", got, ".env.local")
+	}
+}
+
+func TestEnvFileSetCmd_NonexistentEnv(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "env", "file", "set", "foo", "nope", ".env.nope")
+	if err == nil {
+		t.Error("expected error for nonexistent environment")
+	}
+}
+
+func TestEnvFileClearCmd(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local"}, "dev")
+	p.SetEnvFile("local", ".env.local")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "env", "file", "clear", "foo", "local")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Cleared") {
+		t.Errorf("output = %q", out)
+	}
+
+	p, _ = store.Load("foo")
+	if _, ok := p.EnvFiles["local"]; ok {
+		t.Error("expected env file mapping to be cleared")
+	}
+}
+
+func TestEnvListCmd_ShowsFileMapping(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "local", "staging"}, "dev")
+	p.SetEnvFile("local", ".env.local")
+	p.SetEnvFile("staging", ".env.staging")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "env", "list", "foo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "dev") {
+		t.Errorf("missing dev in output: %q", out)
+	}
+	if !strings.Contains(out, "(.env.local)") {
+		t.Errorf("missing .env.local annotation: %q", out)
+	}
+	if !strings.Contains(out, "(.env.staging)") {
+		t.Errorf("missing .env.staging annotation: %q", out)
+	}
+}
+
+func TestEnvRemoveCmd_AlsoRemovesEnvFile(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev", "staging"}, "dev")
+	p.SetEnvFile("staging", ".env.staging")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "env", "remove", "foo", "staging", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	p, _ = store.Load("foo")
+	if _, ok := p.EnvFiles["staging"]; ok {
+		t.Error("env file mapping for staging should be removed")
+	}
+}
+
 func TestEnvRemoveCmd_AlsoRemovesFromPaths(t *testing.T) {
 	store := setupTestStore(t)
 	p, _ := config.NewProject("foo", []string{"dev", "staging"}, "dev")

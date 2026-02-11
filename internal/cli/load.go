@@ -35,6 +35,8 @@ func newLoadCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 			}
 
 			targetEnv := config.ResolveEnv(env, p.DefaultEnv)
+			outputFile := config.ResolveOutputFile(p, targetEnv, output, cmd.Flags().Changed("output"))
+
 			vars, err := config.ResolveVars(p, targetEnv, path)
 			if err != nil {
 				return err
@@ -64,12 +66,12 @@ func newLoadCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 			}
 
 			if !force {
-				if _, err := os.Stat(output); err == nil {
+				if _, err := os.Stat(outputFile); err == nil {
 					reader := stdin
 					if reader == nil {
 						reader = os.Stdin
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "File %q already exists. Overwrite? [y/N] ", output)
+					fmt.Fprintf(cmd.OutOrStdout(), "File %q already exists. Overwrite? [y/N] ", outputFile)
 					scanner := bufio.NewScanner(reader)
 					scanner.Scan()
 					answer := scanner.Text()
@@ -80,9 +82,9 @@ func newLoadCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 				}
 			}
 
-			file, err := os.Create(output)
+			file, err := os.Create(outputFile)
 			if err != nil {
-				return fmt.Errorf("creating %q: %w", output, err)
+				return fmt.Errorf("creating %q: %w", outputFile, err)
 			}
 			defer file.Close()
 
@@ -90,7 +92,7 @@ func newLoadCmd(store *config.Store, stdin io.Reader) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %d variable(s) to %s\n", len(vars), output)
+			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %d variable(s) to %s\n", len(vars), outputFile)
 			return nil
 		},
 	}

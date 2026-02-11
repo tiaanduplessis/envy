@@ -14,6 +14,7 @@ type Project struct {
 	CreatedAt    time.Time                                `yaml:"created_at"`
 	UpdatedAt    time.Time                                `yaml:"updated_at"`
 	DefaultEnv   string                                   `yaml:"default_env"`
+	EnvFiles     map[string]string                        `yaml:"env_files,omitempty"`
 	Environments map[string]map[string]string             `yaml:"environments,omitempty"`
 	Paths        map[string]map[string]map[string]string  `yaml:"paths,omitempty"`
 }
@@ -95,4 +96,22 @@ func (p *Project) GetPathVars(path, env string) map[string]string {
 		return nil
 	}
 	return p.Paths[path][env]
+}
+
+// SetEnvFile sets the output filename for the given environment.
+func (p *Project) SetEnvFile(env, filename string) {
+	if p.EnvFiles == nil {
+		p.EnvFiles = make(map[string]string)
+	}
+	p.EnvFiles[env] = filename
+	p.UpdatedAt = time.Now().UTC()
+}
+
+// ClearEnvFile removes the output filename mapping for the given environment.
+func (p *Project) ClearEnvFile(env string) {
+	if p.EnvFiles == nil {
+		return
+	}
+	delete(p.EnvFiles, env)
+	p.UpdatedAt = time.Now().UTC()
 }

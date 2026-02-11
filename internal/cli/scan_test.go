@@ -242,6 +242,38 @@ func TestScanCmd_InvalidProjectName(t *testing.T) {
 	}
 }
 
+func TestScanCmd_PopulatesEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	dir := t.TempDir()
+	writeEnvFile(t, filepath.Join(dir, ".env"), "DB=localhost\n")
+	writeEnvFile(t, filepath.Join(dir, ".env.local"), "DB=local\n")
+	writeEnvFile(t, filepath.Join(dir, ".env.staging"), "DB=staging\n")
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "scan", "my-app", dir, "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	p, err := store.Load("my-app")
+	if err != nil {
+		t.Fatalf("loading project: %v", err)
+	}
+
+	// .env.local and .env.staging should have env file mappings
+	if got := p.EnvFiles["local"]; got != ".env.local" {
+		t.Errorf("EnvFiles[local] = %q, want %q", got, ".env.local")
+	}
+	if got := p.EnvFiles["staging"]; got != ".env.staging" {
+		t.Errorf("EnvFiles[staging] = %q, want %q", got, ".env.staging")
+	}
+
+	// Bare .env (mapped to dev) should not have a mapping
+	if _, ok := p.EnvFiles["dev"]; ok {
+		t.Error("bare .env should not create an env file mapping for dev")
+	}
+}
+
 func TestScanCmd_DefaultEnvFallback(t *testing.T) {
 	store := setupTestStore(t)
 	dir := t.TempDir()

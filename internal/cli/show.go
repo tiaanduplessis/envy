@@ -13,6 +13,7 @@ import (
 type showOutput struct {
 	Name         string                       `json:"name"`
 	DefaultEnv   string                       `json:"default_env"`
+	EnvFiles     map[string]string            `json:"env_files,omitempty"`
 	Environments map[string]map[string]string `json:"environments,omitempty"`
 	Paths        map[string]map[string]string `json:"paths,omitempty"`
 }
@@ -62,6 +63,7 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 				output := showOutput{
 					Name:         p.Name,
 					DefaultEnv:   p.DefaultEnv,
+					EnvFiles:     p.EnvFiles,
 					Environments: p.Environments,
 				}
 				if path == "" && len(p.Paths) > 0 {
@@ -79,8 +81,17 @@ func NewShowCmd(store *config.Store) *cobra.Command {
 			}
 
 			fmt.Fprintf(out, "Project: %s\n", p.Name)
-			fmt.Fprintf(out, "Default env: %s\n\n", p.DefaultEnv)
+			fmt.Fprintf(out, "Default env: %s\n", p.DefaultEnv)
 
+			if len(p.EnvFiles) > 0 {
+				fmt.Fprintln(out)
+				fmt.Fprintln(out, "Env files:")
+				for _, e := range sortedKeys(p.EnvFiles) {
+					fmt.Fprintf(out, "  %-12s -> %s\n", e, p.EnvFiles[e])
+				}
+			}
+
+			fmt.Fprintln(out)
 			envNames := sortedKeys(p.Environments)
 			for _, e := range envNames {
 				vars := p.Environments[e]
