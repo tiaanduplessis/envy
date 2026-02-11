@@ -1,8 +1,10 @@
 # envy
 
-A local-first Go CLI for managing `.env` files across projects from a centralised YAML config store.
+A CLI for managing `.env` files across projects from a centralised YAML config store.
 
 Envy stores project configurations as YAML files under `~/.config/envy/projects/`. Each project gets its own file. Variables are organised by named environments (e.g. `dev`, `staging`, `prod`) and optional monorepo subpaths. When you run `envy load`, it merges the appropriate variables and writes a `.env` file to your working directory.
+
+Particularly useful when working with AI coding tools like [Conductor](https://www.conductor.build/) that create multiple workspace copies of the same repo — `envy scan` once, then `envy load` in each new workspace to instantly restore your `.env` files.
 
 ## Installation
 
