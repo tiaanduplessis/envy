@@ -441,6 +441,90 @@ func TestLoadCmd_AllPaths_RespectsFormat(t *testing.T) {
 	}
 }
 
+func TestLoadCmd_AllPaths_WritesAllRootEnvFiles(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("semata", []string{"example", "local", "sentry-build-plugin"}, "example")
+	p.SetVar("example", "APP_NAME", "semata")
+	p.SetVar("local", "DB_HOST", "localhost")
+	p.SetVar("sentry-build-plugin", "SENTRY_DSN", "https://sentry.io")
+	p.SetEnvFile("example", ".env.example")
+	p.SetEnvFile("local", ".env.local")
+	p.SetEnvFile("sentry-build-plugin", ".env.sentry-build-plugin")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "semata", "--all-paths", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, ".env.example") {
+		t.Errorf("expected output to reference .env.example: %q", out)
+	}
+	if !strings.Contains(out, ".env.local") {
+		t.Errorf("expected output to reference .env.local: %q", out)
+	}
+	if !strings.Contains(out, ".env.sentry-build-plugin") {
+		t.Errorf("expected output to reference .env.sentry-build-plugin: %q", out)
+	}
+
+	exampleData, err := os.ReadFile(filepath.Join(dir, ".env.example"))
+	if err != nil {
+		t.Fatalf("reading .env.example: %v", err)
+	}
+	if !strings.Contains(string(exampleData), "APP_NAME=semata") {
+		t.Errorf(".env.example missing APP_NAME: %q", string(exampleData))
+	}
+
+	localData, err := os.ReadFile(filepath.Join(dir, ".env.local"))
+	if err != nil {
+		t.Fatalf("reading .env.local: %v", err)
+	}
+	if !strings.Contains(string(localData), "DB_HOST=localhost") {
+		t.Errorf(".env.local missing DB_HOST: %q", string(localData))
+	}
+
+	sentryData, err := os.ReadFile(filepath.Join(dir, ".env.sentry-build-plugin"))
+	if err != nil {
+		t.Fatalf("reading .env.sentry-build-plugin: %v", err)
+	}
+	if !strings.Contains(string(sentryData), "SENTRY_DSN=https://sentry.io") {
+		t.Errorf(".env.sentry-build-plugin missing SENTRY_DSN: %q", string(sentryData))
+	}
+}
+
+func TestLoadCmd_AllPaths_DryRunShowsAllRootEnvs(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("multi", []string{"dev", "local", "test"}, "dev")
+	p.SetVar("dev", "DB", "devdb")
+	p.SetVar("local", "DB", "localdb")
+	p.SetVar("test", "DB", "testdb")
+	p.SetEnvFile("local", ".env.local")
+	p.SetEnvFile("test", ".env.test")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "load", "--project", "multi", "--all-paths", "--dry-run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "=== .env ===") {
+		t.Errorf("missing .env section: %q", out)
+	}
+	if !strings.Contains(out, "=== .env.local ===") {
+		t.Errorf("missing .env.local section: %q", out)
+	}
+	if !strings.Contains(out, "=== .env.test ===") {
+		t.Errorf("missing .env.test section: %q", out)
+	}
+}
+
 func TestLoadCmd_NonexistentProject(t *testing.T) {
 	store := setupTestStore(t)
 	root := NewRootCmd(store)
