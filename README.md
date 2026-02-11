@@ -6,13 +6,35 @@ Envy stores project configurations as YAML files under `~/.config/envy/projects/
 
 ## Installation
 
+### Pre-built binaries
+
+Download a pre-built binary for your platform from the [GitHub releases](https://github.com/tiaanduplessis/envy/releases) page. Builds are available for:
+
+| OS | Architecture |
+|----|-------------|
+| Linux | amd64, arm64 |
+| macOS | amd64 (Intel), arm64 (Apple Silicon) |
+| Windows | amd64, arm64 |
+
+After downloading, extract the archive and move the `envy` binary somewhere on your `PATH`:
+
+```bash
+# Example for macOS (Apple Silicon)
+tar xzf envy_*_darwin_arm64.tar.gz
+sudo mv envy /usr/local/bin/
+```
+
+### go install
+
 Requires Go 1.25.7 or later.
 
 ```bash
 go install github.com/tiaanduplessis/envy/cmd/envy@latest
 ```
 
-Or build from source:
+This places the binary in your `$GOBIN` directory (usually `$HOME/go/bin`).
+
+### Build from source
 
 ```bash
 git clone https://github.com/tiaanduplessis/envy.git
@@ -20,8 +42,6 @@ cd envy
 make build
 # binary is at bin/envy
 ```
-
-Pre-built binaries for Linux, macOS, and Windows are available on the [GitHub releases](https://github.com/tiaanduplessis/envy/releases) page.
 
 ## Quick start
 
