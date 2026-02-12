@@ -8,7 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make build          # builds binary to bin/envy
 make test           # runs all tests with race detector
 make lint           # runs go vet
+make fmt-check      # checks code formatting
+make man            # generates man pages to man/
 make clean          # removes bin/
+make release LEVEL=patch  # tags and pushes a release (patch|minor|major)
 go test -race ./internal/config/...   # run tests for a single package
 go test -race -run TestSetCmd ./internal/cli/...  # run a single test
 ```
@@ -21,7 +24,7 @@ Envy is a local-first CLI for managing `.env` files from a centralised YAML conf
 
 - **`cmd/envy`** -- Entrypoint. Creates a `config.Store`, wires `crypto.GetPassphrase` as the passphrase provider, and passes the store to `cli.NewRootCmd`.
 - **`internal/config`** -- Core data model and persistence:
-  - `Project` struct holds environments (root-level vars per env) and paths (per-subpath overrides per env). Both are nested `map[string]map[string]string`. Optional `Encryption *EncryptionConfig` field enables per-project encryption.
+  - `Project` struct holds environments (root-level vars per env) and paths (per-subpath overrides per env). `Environments` is `map[string]map[string]string` (env -> key -> value). `Paths` is `map[string]map[string]map[string]string` (path -> env -> key -> value). Optional `Encryption *EncryptionConfig` field enables per-project encryption. Optional `EnvFiles map[string]string` maps environments to custom output filenames for `load`.
   - `Store` handles YAML file CRUD on disk. `Load`/`Save` transparently decrypt/encrypt values for encrypted projects. `LoadRaw`/`SaveRaw` bypass encryption for commands that manage it directly (encrypt, decrypt, rekey).
   - `ResolveEnv` implements the environment resolution order (flag > `ENVY_ENV` > `default_env` > `"dev"`).
   - `ResolveVars` merges root-level vars with path-level overrides for a given env+path.
@@ -29,6 +32,7 @@ Envy is a local-first CLI for managing `.env` files from a centralised YAML conf
   - AES-256-GCM encryption with per-value random nonces. Values stored as `ENC:<base64>` in YAML.
   - Argon2id key derivation from passphrase + salt. Parameters stored per-project in `EncryptionConfig.Params`.
   - `GetPassphrase` resolves via `ENVY_PASSPHRASE` env var or interactive terminal prompt. `GetPassphraseWithConfirm` prompts twice for new passphrases.
+- **`internal/scan`** -- Directory scanner for `.env` file discovery. Maps filenames to environment names via conventions (e.g. `.env.staging` -> `staging`), resolves conflicts when multiple files map to the same environment, and skips common non-project directories.
 - **`internal/cli`** -- One file per subcommand. Each exports a `NewXxxCmd(store)` constructor. All commands receive a `*config.Store` via closure (no globals). Test helpers in `helpers_test.go` provide `setupTestStore` (temp dir), `setupEncryptedTestStore` (with fixed passphrase func), and `executeCommand` (captures stdout/stderr).
 - **`internal/dotenv`** -- `.env` parser and writer. Parser handles bare, single-quoted, double-quoted values, `export` prefix, inline comments. Writer handles quoting and escape sequences.
 - **`internal/util`** -- `ConfigDir`/`ProjectsDir` for path resolution (respects `ENVY_CONFIG_DIR`), `MaskValue`/`FormatKeyValue` for display formatting.

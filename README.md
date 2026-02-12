@@ -146,7 +146,7 @@ Scan maps filenames to environment names using these conventions:
 | `.env.test`, `.env.testing` | `test` |
 | `.env.<other>` | `<other>` |
 
-Directories like `.git`, `node_modules`, `vendor`, `dist`, `build`, `.next`, `target`, `.venv`, `.terraform`, and `.cache` are skipped automatically.
+The following directories are skipped automatically: `.git`, `.svn`, `.hg`, `node_modules`, `vendor`, `dist`, `build`, `.next`, `target`, `out`, `bin`, `.venv`, `venv`, `.terraform`, `.cache`, `tmp`, and `temp`.
 
 When multiple files in the same directory map to the same environment, the suffixed file takes priority over bare `.env` and a warning is printed.
 
@@ -453,6 +453,9 @@ created_at: 2026-02-10T12:00:00Z
 updated_at: 2026-02-10T14:30:00Z
 default_env: dev
 
+env_files:
+  production: ".env.production"
+
 environments:
   dev:
     DATABASE_URL: "postgres://localhost:5432/myapp_dev"
@@ -475,6 +478,8 @@ paths:
       SERVICE_NAME: "worker"
       QUEUE_URL: "redis://localhost:6379"
 ```
+
+The optional `env_files` section maps environments to custom output filenames. When `envy load` targets an environment with a mapping, it writes to that filename instead of `.env`. See [`envy env file`](#envy-env-file) for how to manage these mappings.
 
 Project names must start with an alphanumeric character and contain only alphanumeric characters, hyphens, or underscores. The name maps directly to the filename on disk (`my-app` becomes `my-app.yaml`).
 
@@ -572,7 +577,7 @@ envy set my-api DB_PASSWORD=hunter2 --env dev
 | Variable | Description |
 |----------|-------------|
 | `ENVY_CONFIG_DIR` | Override the default config directory (`~/.config/envy`). When set, projects are stored under `$ENVY_CONFIG_DIR/projects/`. |
-| `ENVY_ENV` | Default environment for commands that accept `--env`. Overridden by `--env` flag and by a project's `default_env`. |
+| `ENVY_ENV` | Default environment for commands that accept `--env`. Overrides a project's `default_env` but is itself overridden by the `--env` flag. |
 | `ENVY_PASSPHRASE` | Encryption passphrase for non-interactive use (CI, scripting). When unset, envy prompts on the terminal. |
 
 ## LLM reference
