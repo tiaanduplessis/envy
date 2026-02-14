@@ -304,6 +304,19 @@ envy delete my-app --force
 
 This deletes the project YAML file from disk. The operation cannot be undone.
 
+### envy edit
+
+Open a project's configuration file in your default editor.
+
+```bash
+envy edit my-app
+```
+
+The editor is resolved in this order:
+1. `$VISUAL` environment variable
+2. `$EDITOR` environment variable
+3. `vi` as a fallback
+
 ### envy env
 
 Manage environments within a project. This command has subcommands for adding, removing, listing, and copying environments, as well as managing custom output filenames.

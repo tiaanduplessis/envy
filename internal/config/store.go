@@ -89,7 +89,7 @@ func (s *Store) ResetPassphraseCache() {
 }
 
 func (s *Store) loadFromDisk(name string) (*Project, error) {
-	data, err := os.ReadFile(s.projectPath(name))
+	data, err := os.ReadFile(s.ProjectPath(name))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("project %q not found", name)
@@ -114,7 +114,7 @@ func (s *Store) writeProject(p *Project) error {
 		return fmt.Errorf("marshalling project %q: %w", p.Name, err)
 	}
 
-	path := s.projectPath(p.Name)
+	path := s.ProjectPath(p.Name)
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("writing project %q: %w", p.Name, err)
 	}
@@ -241,7 +241,7 @@ func (s *Store) List() ([]string, error) {
 }
 
 func (s *Store) Delete(name string) error {
-	path := s.projectPath(name)
+	path := s.ProjectPath(name)
 	err := os.Remove(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -253,10 +253,10 @@ func (s *Store) Delete(name string) error {
 }
 
 func (s *Store) Exists(name string) bool {
-	_, err := os.Stat(s.projectPath(name))
+	_, err := os.Stat(s.ProjectPath(name))
 	return err == nil
 }
 
-func (s *Store) projectPath(name string) string {
+func (s *Store) ProjectPath(name string) string {
 	return filepath.Join(s.basePath, name+".yaml")
 }
