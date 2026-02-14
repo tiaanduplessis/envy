@@ -27,8 +27,8 @@ func TestConfigDir_Default(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	base, _ := os.UserConfigDir()
-	want := filepath.Join(base, "envy")
+	home, _ := os.UserHomeDir()
+	want := filepath.Join(home, ".config", "envy")
 	if got != want {
 		t.Errorf("ConfigDir() = %q, want %q", got, want)
 	}
