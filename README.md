@@ -454,7 +454,7 @@ All project configurations live as YAML files in a single directory:
     my-monorepo.yaml
 ```
 
-The base config directory defaults to `~/.config/envy` (using `os.UserConfigDir()` on the current platform). Override it by setting `ENVY_CONFIG_DIR`.
+The base config directory defaults to `~/.config/envy`. Override it by setting `ENVY_CONFIG_DIR`.
 
 ### Data model
 
