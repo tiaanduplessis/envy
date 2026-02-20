@@ -195,6 +195,18 @@ func TestShowCmd_EncryptionStatus(t *testing.T) {
 	if !strings.Contains(out, "Encryption: enabled") {
 		t.Errorf("expected 'Encryption: enabled' in output: %q", out)
 	}
+
+	cmd = NewRootCmd(store)
+	out, err = executeCommand(cmd, "show", "secure", "--env", "dev", "--reveal")
+	if err != nil {
+		t.Fatalf("show --reveal: %v", err)
+	}
+	if !strings.Contains(out, "value") {
+		t.Errorf("expected decrypted value in --reveal output: %q", out)
+	}
+	if strings.Contains(out, "ENC:") {
+		t.Errorf("output should not contain encrypted values: %q", out)
+	}
 }
 
 func TestShowCmd_EncryptionStatus_JSON(t *testing.T) {

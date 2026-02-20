@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestSetCmd_SingleVar(t *testing.T) {
@@ -125,5 +126,44 @@ func TestSetCmd_AutoCreatesEnv(t *testing.T) {
 	p, _ = store.Load("foo")
 	if got := p.Environments["staging"]["KEY"]; got != "val" {
 		t.Errorf("KEY = %q, want %q", got, "val")
+	}
+}
+
+func TestSetCmd_Encrypted(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	p.SetVar("dev", "EXISTING", "keep-me")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "set", "foo", "NEW=added")
+	if err != nil {
+		t.Fatalf("set on encrypted project: %v", err)
+	}
+	if !strings.Contains(out, "Set 1 variable") {
+		t.Errorf("output = %q", out)
+	}
+
+	raw, _ := store.LoadRaw("foo")
+	if !crypto.IsEncrypted(raw.Environments["dev"]["NEW"]) {
+		t.Error("new value should be encrypted on disk")
+	}
+	if !crypto.IsEncrypted(raw.Environments["dev"]["EXISTING"]) {
+		t.Error("existing value should remain encrypted on disk")
+	}
+
+	loaded, _ := store.Load("foo")
+	if got := loaded.Environments["dev"]["NEW"]; got != "added" {
+		t.Errorf("NEW = %q, want %q", got, "added")
+	}
+	if got := loaded.Environments["dev"]["EXISTING"]; got != "keep-me" {
+		t.Errorf("EXISTING = %q, want %q", got, "keep-me")
 	}
 }

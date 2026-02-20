@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestGetCmd_ExistingKey(t *testing.T) {
@@ -69,5 +70,28 @@ func TestGetCmd_NonexistentProject(t *testing.T) {
 	_, err := executeCommand(root, "get", "nope", "KEY")
 	if err == nil {
 		t.Error("expected error for nonexistent project")
+	}
+}
+
+func TestGetCmd_Encrypted(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	p.SetVar("dev", "SECRET", "hunter2")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "get", "foo", "SECRET")
+	if err != nil {
+		t.Fatalf("get on encrypted project: %v", err)
+	}
+	if got := strings.TrimSpace(out); got != "hunter2" {
+		t.Errorf("output = %q, want %q", got, "hunter2")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestLoadCmd_DryRun(t *testing.T) {
@@ -544,5 +545,35 @@ func TestLoadCmd_NonexistentEnv(t *testing.T) {
 		"--env", "nope", "--dry-run")
 	if err == nil {
 		t.Error("expected error for nonexistent env")
+	}
+}
+
+func TestLoadCmd_Encrypted(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetVar("dev", "SECRET", "hunter2")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "load", "--project", "foo", "--dry-run")
+	if err != nil {
+		t.Fatalf("load on encrypted project: %v", err)
+	}
+	if !strings.Contains(out, "DB=localhost") {
+		t.Errorf("missing decrypted DB: %q", out)
+	}
+	if !strings.Contains(out, "SECRET=hunter2") {
+		t.Errorf("missing decrypted SECRET: %q", out)
+	}
+	if strings.Contains(out, "ENC:") {
+		t.Errorf("output should not contain encrypted values: %q", out)
 	}
 }
