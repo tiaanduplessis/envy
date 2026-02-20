@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestEditCmd_ProjectNotFound(t *testing.T) {
@@ -58,5 +61,51 @@ func TestEditCmd_EditorError(t *testing.T) {
 	_, err := executeCommand(cmd, "my-app")
 	if err != editorErr {
 		t.Errorf("got %v, want %v", err, editorErr)
+	}
+}
+
+func TestEditCmd_EncryptedWarning(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("secure", []string{"dev"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	store.Save(p)
+
+	root := NewRootCmd(store)
+	if _, err := executeCommand(root, "encrypt", "secure"); err != nil {
+		t.Fatal(err)
+	}
+
+	var stderr bytes.Buffer
+	cmd := newEditCmd(store, func(path string) error { return nil })
+	cmd.SetErr(&stderr)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetArgs([]string{"secure"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(stderr.String(), "Warning") || !strings.Contains(stderr.String(), "encrypted") {
+		t.Errorf("expected encryption warning on stderr, got: %q", stderr.String())
+	}
+}
+
+func TestEditCmd_NoWarningForPlaintext(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("plain", []string{"dev"}, "dev")
+	store.Save(p)
+
+	var stderr bytes.Buffer
+	cmd := newEditCmd(store, func(path string) error { return nil })
+	cmd.SetErr(&stderr)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetArgs([]string{"plain"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(stderr.String(), "Warning") {
+		t.Errorf("should not warn for plaintext project, got: %q", stderr.String())
 	}
 }

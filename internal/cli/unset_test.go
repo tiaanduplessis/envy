@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestUnsetCmd_SingleVar(t *testing.T) {
@@ -127,20 +128,37 @@ func TestUnsetCmd_NonexistentKey(t *testing.T) {
 
 func TestUnsetCmd_Encrypted(t *testing.T) {
 	store := setupEncryptedTestStore(t)
-	t.Setenv("ENVY_PASSPHRASE", "test-passphrase")
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
 
-	p, _ := config.NewProject("foo", nil, "")
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
 	p.SetVar("dev", "SECRET", "hunter2")
+	p.SetVar("dev", "KEEP", "this")
 	store.Save(p)
 
-	root := NewRootCmd(store)
-	_, err := executeCommand(root, "unset", "foo", "SECRET")
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	_, err := executeCommand(cmd, "unset", "foo", "SECRET")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	p, _ = store.Load("foo")
-	if _, ok := p.Environments["dev"]["SECRET"]; ok {
+	loaded, _ := store.Load("foo")
+	if _, ok := loaded.Environments["dev"]["SECRET"]; ok {
 		t.Error("expected SECRET to be deleted")
+	}
+	if got := loaded.Environments["dev"]["KEEP"]; got != "this" {
+		t.Errorf("KEEP = %q, want %q", got, "this")
+	}
+
+	raw, _ := store.LoadRaw("foo")
+	if !raw.IsEncrypted() {
+		t.Error("project should still be encrypted")
+	}
+	if !crypto.IsEncrypted(raw.Environments["dev"]["KEEP"]) {
+		t.Error("remaining value should be encrypted on disk")
 	}
 }

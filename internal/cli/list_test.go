@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestListCmd_Empty(t *testing.T) {
@@ -125,5 +126,70 @@ func TestListCmd_CorruptProject(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "Warning") || !strings.Contains(stderr.String(), "bad") {
 		t.Errorf("stderr = %q, expected warning about 'bad'", stderr.String())
+	}
+}
+
+func TestListCmd_EncryptedProject(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("secure", []string{"dev", "prod"}, "dev")
+	p.SetVar("dev", "KEY", "value")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "secure"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "list")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(out, "secure") {
+		t.Errorf("missing encrypted project name: %q", out)
+	}
+	if !strings.Contains(out, "dev") || !strings.Contains(out, "prod") {
+		t.Errorf("missing environment names: %q", out)
+	}
+}
+
+func TestListCmd_EncryptedNoPassphrase(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "projects")
+	store := config.NewStore(dir)
+	store.SetPassphraseFunc(func(string) (string, error) {
+		return "test-passphrase", nil
+	})
+
+	p, _ := config.NewProject("plain", []string{"dev"}, "dev")
+	store.Save(p)
+
+	enc, _ := config.NewProject("locked", []string{"dev"}, "dev")
+	enc.SetVar("dev", "SECRET", "val")
+	store.Save(enc)
+
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "locked"); err != nil {
+		t.Fatal(err)
+	}
+
+	bareStore := config.NewStore(dir)
+	root := NewRootCmd(bareStore)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"list"})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "plain") {
+		t.Errorf("plain project should be listed: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Warning") {
+		t.Errorf("expected warning for encrypted project without passphrase: %q", stderr.String())
 	}
 }

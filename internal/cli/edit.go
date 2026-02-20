@@ -28,6 +28,11 @@ func newEditCmd(store *config.Store, editorFn func(path string) error) *cobra.Co
 
 			path := store.ProjectPath(name)
 
+			p, err := store.LoadRaw(name)
+			if err == nil && p.IsEncrypted() {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning: project is encrypted; values will appear as ENC:... Use set/unset to modify variables.")
+			}
+
 			if editorFn != nil {
 				return editorFn(path)
 			}

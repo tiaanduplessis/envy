@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tiaanduplessis/envy/internal/config"
+	"github.com/tiaanduplessis/envy/internal/crypto"
 )
 
 func TestComputeDiff(t *testing.T) {
@@ -156,5 +157,41 @@ func TestDiffCmd_NoEnvFlags(t *testing.T) {
 	_, err := executeCommand(root, "diff", "foo")
 	if err == nil {
 		t.Error("expected error when no --env flags provided")
+	}
+}
+
+func TestDiffCmd_Encrypted(t *testing.T) {
+	store := setupEncryptedTestStore(t)
+	t.Setenv(crypto.EnvPassphrase, "test-passphrase")
+
+	p, _ := config.NewProject("foo", []string{"dev", "staging"}, "dev")
+	p.SetVar("dev", "DB", "localhost")
+	p.SetVar("dev", "DEBUG", "true")
+	p.SetVar("staging", "DB", "staging-db")
+	p.SetVar("staging", "EXTRA", "yes")
+	store.Save(p)
+
+	cmd := NewRootCmd(store)
+	if _, err := executeCommand(cmd, "encrypt", "foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd = NewRootCmd(store)
+	out, err := executeCommand(cmd, "diff", "foo",
+		"--env", "dev", "--env", "staging", "--reveal")
+	if err != nil {
+		t.Fatalf("diff on encrypted project: %v", err)
+	}
+	if !strings.Contains(out, "- DEBUG=true") {
+		t.Errorf("missing removed DEBUG: %q", out)
+	}
+	if !strings.Contains(out, "+ EXTRA=yes") {
+		t.Errorf("missing added EXTRA: %q", out)
+	}
+	if !strings.Contains(out, "~ DB:") {
+		t.Errorf("missing changed DB: %q", out)
+	}
+	if strings.Contains(out, "ENC:") {
+		t.Errorf("output should not contain encrypted values: %q", out)
 	}
 }
