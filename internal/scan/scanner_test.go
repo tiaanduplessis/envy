@@ -58,6 +58,10 @@ func TestIsEnvFile(t *testing.T) {
 		{"env", false},
 		{".environment", false},
 		{".envrc", false},
+		{".env.example", false},
+		{".env.sample", false},
+		{".env.template", false},
+		{".env.Example", false},
 	}
 
 	for _, tt := range tests {
@@ -262,6 +266,51 @@ func TestResolveConflict(t *testing.T) {
 			t.Errorf("expected .env.development, got %s", got.filename)
 		}
 	})
+}
+
+func TestDir_IgnoresTemplateFiles(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".env"), "DB_URL=localhost\n")
+	writeFile(t, filepath.Join(root, ".env.example"), "DB_URL=\n")
+	writeFile(t, filepath.Join(root, ".env.sample"), "DB_URL=\n")
+	writeFile(t, filepath.Join(root, ".env.template"), "DB_URL=\n")
+
+	result, err := Dir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result.Root) != 1 {
+		t.Fatalf("expected 1 root env, got %d: %v", len(result.Root), result.Root)
+	}
+	if _, ok := result.Root["dev"]; !ok {
+		t.Error("missing root dev env")
+	}
+	for _, name := range []string{"example", "sample", "template"} {
+		if _, ok := result.Root[name]; ok {
+			t.Errorf("template env %q should not be discovered", name)
+		}
+	}
+}
+
+func TestDir_IgnoresTemplateFilesInSubdirs(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "services", "api", ".env"), "PORT=3000\n")
+	writeFile(t, filepath.Join(root, "services", "api", ".env.example"), "PORT=\n")
+
+	result, err := Dir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	apiPath := filepath.Join("services", "api")
+	apiEnvs := result.Paths[apiPath]
+	if len(apiEnvs) != 1 {
+		t.Fatalf("expected 1 env for api, got %d: %v", len(apiEnvs), apiEnvs)
+	}
+	if _, ok := apiEnvs["example"]; ok {
+		t.Error("template env \"example\" should not be discovered in subdir")
+	}
 }
 
 func TestDir_DeepNesting(t *testing.T) {
