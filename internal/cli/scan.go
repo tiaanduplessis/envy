@@ -180,24 +180,32 @@ func populateProject(project *config.Project, result *scan.Result) (int, error) 
 	varCount := 0
 
 	for env, filePath := range result.Root {
-		vars, err := parseEnvFile(filePath)
+		parsed, err := parseEnvFile(filePath)
 		if err != nil {
 			return 0, err
 		}
-		for key, value := range vars {
+		for key, value := range parsed.Vars {
 			project.SetVar(env, key, value)
+			varCount++
+		}
+		for key, value := range parsed.DisabledVars {
+			project.SetDisabledVar(env, key, value)
 			varCount++
 		}
 	}
 
 	for path, envFiles := range result.Paths {
 		for env, filePath := range envFiles {
-			vars, err := parseEnvFile(filePath)
+			parsed, err := parseEnvFile(filePath)
 			if err != nil {
 				return 0, err
 			}
-			for key, value := range vars {
+			for key, value := range parsed.Vars {
 				project.SetPathVar(path, env, key, value)
+				varCount++
+			}
+			for key, value := range parsed.DisabledVars {
+				project.SetDisabledPathVar(path, env, key, value)
 				varCount++
 			}
 		}
@@ -206,14 +214,14 @@ func populateProject(project *config.Project, result *scan.Result) (int, error) 
 	return varCount, nil
 }
 
-func parseEnvFile(path string) (map[string]string, error) {
+func parseEnvFile(path string) (*dotenv.ParseResult, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening %q: %w", path, err)
 	}
 	defer f.Close()
 
-	vars, err := dotenv.Parse(f)
+	vars, err := dotenv.ParseWithDisabled(f)
 	if err != nil {
 		return nil, fmt.Errorf("parsing %q: %w", path, err)
 	}

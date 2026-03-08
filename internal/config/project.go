@@ -18,14 +18,16 @@ type EncryptionConfig struct {
 }
 
 type Project struct {
-	Name         string                                  `yaml:"name"`
-	CreatedAt    time.Time                               `yaml:"created_at"`
-	UpdatedAt    time.Time                               `yaml:"updated_at"`
-	DefaultEnv   string                                  `yaml:"default_env"`
-	Encryption   *EncryptionConfig                       `yaml:"encryption,omitempty"`
-	EnvFiles     map[string]string                       `yaml:"env_files,omitempty"`
-	Environments map[string]map[string]string            `yaml:"environments,omitempty"`
-	Paths        map[string]map[string]map[string]string `yaml:"paths,omitempty"`
+	Name                 string                                  `yaml:"name"`
+	CreatedAt            time.Time                               `yaml:"created_at"`
+	UpdatedAt            time.Time                               `yaml:"updated_at"`
+	DefaultEnv           string                                  `yaml:"default_env"`
+	Encryption           *EncryptionConfig                       `yaml:"encryption,omitempty"`
+	EnvFiles             map[string]string                       `yaml:"env_files,omitempty"`
+	Environments         map[string]map[string]string            `yaml:"environments,omitempty"`
+	DisabledEnvironments map[string]map[string]string            `yaml:"disabled_environments,omitempty"`
+	Paths                map[string]map[string]map[string]string `yaml:"paths,omitempty"`
+	DisabledPaths        map[string]map[string]map[string]string `yaml:"disabled_paths,omitempty"`
 }
 
 func (p *Project) IsEncrypted() bool {
@@ -99,6 +101,31 @@ func (p *Project) SetPathVar(path, env, key, value string) {
 	p.UpdatedAt = time.Now().UTC()
 }
 
+func (p *Project) SetDisabledVar(env, key, value string) {
+	if p.DisabledEnvironments == nil {
+		p.DisabledEnvironments = make(map[string]map[string]string)
+	}
+	if p.DisabledEnvironments[env] == nil {
+		p.DisabledEnvironments[env] = make(map[string]string)
+	}
+	p.DisabledEnvironments[env][key] = value
+	p.UpdatedAt = time.Now().UTC()
+}
+
+func (p *Project) SetDisabledPathVar(path, env, key, value string) {
+	if p.DisabledPaths == nil {
+		p.DisabledPaths = make(map[string]map[string]map[string]string)
+	}
+	if p.DisabledPaths[path] == nil {
+		p.DisabledPaths[path] = make(map[string]map[string]string)
+	}
+	if p.DisabledPaths[path][env] == nil {
+		p.DisabledPaths[path][env] = make(map[string]string)
+	}
+	p.DisabledPaths[path][env][key] = value
+	p.UpdatedAt = time.Now().UTC()
+}
+
 // GetPathVars returns the raw (non-inherited) variables for a path and environment.
 func (p *Project) GetPathVars(path, env string) map[string]string {
 	if p.Paths == nil {
@@ -108,6 +135,23 @@ func (p *Project) GetPathVars(path, env string) map[string]string {
 		return nil
 	}
 	return p.Paths[path][env]
+}
+
+func (p *Project) GetDisabledVars(env string) map[string]string {
+	if p.DisabledEnvironments == nil {
+		return nil
+	}
+	return p.DisabledEnvironments[env]
+}
+
+func (p *Project) GetDisabledPathVars(path, env string) map[string]string {
+	if p.DisabledPaths == nil {
+		return nil
+	}
+	if p.DisabledPaths[path] == nil {
+		return nil
+	}
+	return p.DisabledPaths[path][env]
 }
 
 func (p *Project) SetEnvFile(env, filename string) {

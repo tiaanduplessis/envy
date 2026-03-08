@@ -188,6 +188,31 @@ func TestScanCmd_Monorepo(t *testing.T) {
 	}
 }
 
+func TestScanCmd_PreservesDisabledVars(t *testing.T) {
+	store := setupTestStore(t)
+	dir := t.TempDir()
+	writeEnvFile(t, filepath.Join(dir, ".env"), "DB=localhost\n# API_KEY=disabled\n")
+	writeEnvFile(t, filepath.Join(dir, "services", "api", ".env"), "# PORT=3000\n")
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "scan", "mono", dir, "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	p, err := store.Load("mono")
+	if err != nil {
+		t.Fatalf("loading project: %v", err)
+	}
+
+	if got := p.DisabledEnvironments["dev"]["API_KEY"]; got != "disabled" {
+		t.Errorf("disabled API_KEY = %q, want %q", got, "disabled")
+	}
+	if got := p.DisabledPaths[filepath.Join("services", "api")]["dev"]["PORT"]; got != "3000" {
+		t.Errorf("disabled PORT = %q, want %q", got, "3000")
+	}
+}
+
 func TestScanCmd_Aborted(t *testing.T) {
 	store := setupTestStore(t)
 	dir := t.TempDir()

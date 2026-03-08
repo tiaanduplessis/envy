@@ -130,3 +130,39 @@ func TestWrite_RoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestWrite_WithDisabledVars(t *testing.T) {
+	var buf bytes.Buffer
+	err := Write(&buf, map[string]string{"ACTIVE": "yes"}, WriteOptions{
+		Sorted:       true,
+		DisabledVars: map[string]string{"API_KEY": "secret", "TOKEN": "abc 123"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := strings.TrimSpace(buf.String())
+	if !strings.Contains(got, "ACTIVE=yes") {
+		t.Fatalf("missing active var: %q", got)
+	}
+	if !strings.Contains(got, "# API_KEY=secret") {
+		t.Fatalf("missing disabled API_KEY: %q", got)
+	}
+	if !strings.Contains(got, "# TOKEN=\"abc 123\"") {
+		t.Fatalf("missing disabled TOKEN: %q", got)
+	}
+
+	parsed, err := ParseWithDisabled(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("ParseWithDisabled: %v\nwritten:\n%s", err, buf.String())
+	}
+	if parsed.Vars["ACTIVE"] != "yes" {
+		t.Errorf("ACTIVE = %q, want %q", parsed.Vars["ACTIVE"], "yes")
+	}
+	if parsed.DisabledVars["API_KEY"] != "secret" {
+		t.Errorf("API_KEY = %q, want %q", parsed.DisabledVars["API_KEY"], "secret")
+	}
+	if parsed.DisabledVars["TOKEN"] != "abc 123" {
+		t.Errorf("TOKEN = %q, want %q", parsed.DisabledVars["TOKEN"], "abc 123")
+	}
+}

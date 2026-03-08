@@ -192,6 +192,29 @@ func TestStore_RoundTrip_WithEnvFiles(t *testing.T) {
 	}
 }
 
+func TestStore_RoundTrip_WithDisabledVars(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := NewProject("test", []string{"dev"}, "dev")
+	p.SetDisabledVar("dev", "DB_PASSWORD", "secret")
+	p.SetDisabledPathVar("services/api", "dev", "PORT", "3000")
+
+	if err := store.Save(p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := store.Load("test")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if got := loaded.DisabledEnvironments["dev"]["DB_PASSWORD"]; got != "secret" {
+		t.Errorf("disabled DB_PASSWORD = %q, want %q", got, "secret")
+	}
+	if got := loaded.DisabledPaths["services/api"]["dev"]["PORT"]; got != "3000" {
+		t.Errorf("disabled PORT = %q, want %q", got, "3000")
+	}
+}
+
 func TestStore_CRUDCycle(t *testing.T) {
 	store := setupTestStore(t)
 
@@ -259,6 +282,8 @@ func TestStore_EncryptedRoundTrip(t *testing.T) {
 	p.SetVar("dev", "API_KEY", "sk-12345")
 	p.SetVar("prod", "DB_PASSWORD", "p4ssw0rd")
 	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	p.SetDisabledVar("dev", "OLD_PASSWORD", "legacy")
+	p.SetDisabledPathVar("services/api", "dev", "OLD_PORT", "2999")
 	enableEncryption(t, p)
 
 	if err := store.Save(p); err != nil {
@@ -282,12 +307,19 @@ func TestStore_EncryptedRoundTrip(t *testing.T) {
 	if got := loaded.Paths["services/api"]["dev"]["PORT"]; got != "3000" {
 		t.Errorf("PORT = %q, want %q", got, "3000")
 	}
+	if got := loaded.DisabledEnvironments["dev"]["OLD_PASSWORD"]; got != "legacy" {
+		t.Errorf("disabled OLD_PASSWORD = %q, want %q", got, "legacy")
+	}
+	if got := loaded.DisabledPaths["services/api"]["dev"]["OLD_PORT"]; got != "2999" {
+		t.Errorf("disabled OLD_PORT = %q, want %q", got, "2999")
+	}
 }
 
 func TestStore_EncryptedValuesOnDisk(t *testing.T) {
 	store := setupEncryptedTestStore(t)
 	p, _ := NewProject("ondisk", []string{"dev"}, "dev")
 	p.SetVar("dev", "SECRET", "plaintext-value")
+	p.SetDisabledVar("dev", "OLD_SECRET", "legacy-value")
 	enableEncryption(t, p)
 
 	if err := store.Save(p); err != nil {
@@ -302,6 +334,10 @@ func TestStore_EncryptedValuesOnDisk(t *testing.T) {
 	val := raw.Environments["dev"]["SECRET"]
 	if !strings.HasPrefix(val, crypto.EncryptedPrefix) {
 		t.Errorf("value on disk should be encrypted, got %q", val)
+	}
+	disabled := raw.DisabledEnvironments["dev"]["OLD_SECRET"]
+	if !strings.HasPrefix(disabled, crypto.EncryptedPrefix) {
+		t.Errorf("disabled value on disk should be encrypted, got %q", disabled)
 	}
 }
 

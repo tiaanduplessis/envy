@@ -37,6 +37,33 @@ func TestUpdateCmd_Basic(t *testing.T) {
 	}
 }
 
+func TestUpdateCmd_PreservesDisabledVars(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
+	store.Save(p)
+
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	os.WriteFile(envFile, []byte("DB=localhost\n# API_KEY=disabled\n"), 0o644)
+
+	root := NewRootCmd(store)
+	out, err := executeCommand(root, "update", "--project", "foo", "--file", envFile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Updated 2 variable") {
+		t.Errorf("output = %q", out)
+	}
+
+	p, _ = store.Load("foo")
+	if got := p.Environments["dev"]["DB"]; got != "localhost" {
+		t.Errorf("DB = %q, want %q", got, "localhost")
+	}
+	if got := p.DisabledEnvironments["dev"]["API_KEY"]; got != "disabled" {
+		t.Errorf("disabled API_KEY = %q, want %q", got, "disabled")
+	}
+}
+
 func TestUpdateCmd_MergeMode(t *testing.T) {
 	store := setupTestStore(t)
 	p, _ := config.NewProject("foo", []string{"dev"}, "dev")
@@ -149,7 +176,7 @@ func TestUpdateCmd_Encrypted(t *testing.T) {
 
 	dir := t.TempDir()
 	envFile := filepath.Join(dir, ".env")
-	os.WriteFile(envFile, []byte("NEW=from-file\nEXISTING=updated\n"), 0o644)
+	os.WriteFile(envFile, []byte("NEW=from-file\nEXISTING=updated\n# OLD=disabled\n"), 0o644)
 
 	cmd = NewRootCmd(store)
 	_, err := executeCommand(cmd, "update", "--project", "foo", "--file", envFile)
@@ -161,6 +188,9 @@ func TestUpdateCmd_Encrypted(t *testing.T) {
 	if !crypto.IsEncrypted(raw.Environments["dev"]["NEW"]) {
 		t.Error("new value should be encrypted on disk")
 	}
+	if !crypto.IsEncrypted(raw.DisabledEnvironments["dev"]["OLD"]) {
+		t.Error("disabled value should be encrypted on disk")
+	}
 
 	loaded, _ := store.Load("foo")
 	if got := loaded.Environments["dev"]["NEW"]; got != "from-file" {
@@ -168,5 +198,8 @@ func TestUpdateCmd_Encrypted(t *testing.T) {
 	}
 	if got := loaded.Environments["dev"]["EXISTING"]; got != "updated" {
 		t.Errorf("EXISTING = %q, want %q", got, "updated")
+	}
+	if got := loaded.DisabledEnvironments["dev"]["OLD"]; got != "disabled" {
+		t.Errorf("OLD = %q, want %q", got, "disabled")
 	}
 }

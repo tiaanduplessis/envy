@@ -189,3 +189,46 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+func TestParseWithDisabled(t *testing.T) {
+	input := strings.Join([]string{
+		"# API_KEY=disabled",
+		"# export TOKEN=\"secret value\"",
+		"# just a comment",
+		"ACTIVE=yes",
+		"# not an assignment = keep ignored",
+		"",
+	}, "\n")
+
+	got, err := ParseWithDisabled(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseWithDisabled() error = %v", err)
+	}
+
+	if got.Vars["ACTIVE"] != "yes" {
+		t.Fatalf("ACTIVE = %q, want %q", got.Vars["ACTIVE"], "yes")
+	}
+	if got.DisabledVars["API_KEY"] != "disabled" {
+		t.Errorf("API_KEY = %q, want %q", got.DisabledVars["API_KEY"], "disabled")
+	}
+	if got.DisabledVars["TOKEN"] != "secret value" {
+		t.Errorf("TOKEN = %q, want %q", got.DisabledVars["TOKEN"], "secret value")
+	}
+	if len(got.DisabledVars) != 2 {
+		t.Errorf("got %d disabled vars, want 2: %v", len(got.DisabledVars), got.DisabledVars)
+	}
+}
+
+func TestParse_IgnoresDisabledAssignments(t *testing.T) {
+	got, err := Parse(strings.NewReader("# DISABLED=value\nACTIVE=yes\n"))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if got["ACTIVE"] != "yes" {
+		t.Fatalf("ACTIVE = %q, want %q", got["ACTIVE"], "yes")
+	}
+	if _, ok := got["DISABLED"]; ok {
+		t.Fatalf("DISABLED should not be returned by Parse(): %v", got)
+	}
+}

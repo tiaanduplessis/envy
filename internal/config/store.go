@@ -162,6 +162,14 @@ func (s *Store) decryptProject(p *Project) error {
 		p.Environments[env] = decrypted
 	}
 
+	for env, vars := range p.DisabledEnvironments {
+		decrypted, err := crypto.DecryptMap(key, vars)
+		if err != nil {
+			return fmt.Errorf("disabled environment %q: %w", env, err)
+		}
+		p.DisabledEnvironments[env] = decrypted
+	}
+
 	for path, envMap := range p.Paths {
 		for env, vars := range envMap {
 			decrypted, err := crypto.DecryptMap(key, vars)
@@ -169,6 +177,16 @@ func (s *Store) decryptProject(p *Project) error {
 				return fmt.Errorf("path %q env %q: %w", path, env, err)
 			}
 			p.Paths[path][env] = decrypted
+		}
+	}
+
+	for path, envMap := range p.DisabledPaths {
+		for env, vars := range envMap {
+			decrypted, err := crypto.DecryptMap(key, vars)
+			if err != nil {
+				return fmt.Errorf("disabled path %q env %q: %w", path, env, err)
+			}
+			p.DisabledPaths[path][env] = decrypted
 		}
 	}
 
@@ -201,6 +219,17 @@ func (s *Store) encryptProject(p *Project) (*Project, error) {
 		clone.Environments[env] = encrypted
 	}
 
+	if p.DisabledEnvironments != nil {
+		clone.DisabledEnvironments = make(map[string]map[string]string, len(p.DisabledEnvironments))
+		for env, vars := range p.DisabledEnvironments {
+			encrypted, err := crypto.EncryptMap(key, vars)
+			if err != nil {
+				return nil, fmt.Errorf("disabled environment %q: %w", env, err)
+			}
+			clone.DisabledEnvironments[env] = encrypted
+		}
+	}
+
 	clone.Paths = make(map[string]map[string]map[string]string, len(p.Paths))
 	for path, envMap := range p.Paths {
 		clone.Paths[path] = make(map[string]map[string]string, len(envMap))
@@ -210,6 +239,20 @@ func (s *Store) encryptProject(p *Project) (*Project, error) {
 				return nil, fmt.Errorf("path %q env %q: %w", path, env, err)
 			}
 			clone.Paths[path][env] = encrypted
+		}
+	}
+
+	if p.DisabledPaths != nil {
+		clone.DisabledPaths = make(map[string]map[string]map[string]string, len(p.DisabledPaths))
+		for path, envMap := range p.DisabledPaths {
+			clone.DisabledPaths[path] = make(map[string]map[string]string, len(envMap))
+			for env, vars := range envMap {
+				encrypted, err := crypto.EncryptMap(key, vars)
+				if err != nil {
+					return nil, fmt.Errorf("disabled path %q env %q: %w", path, env, err)
+				}
+				clone.DisabledPaths[path][env] = encrypted
+			}
 		}
 	}
 
