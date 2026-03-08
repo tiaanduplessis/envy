@@ -63,3 +63,29 @@ func ResolveVars(p *Project, env, path string) (map[string]string, error) {
 
 	return result, nil
 }
+
+// ResolveDisabledVars returns the merged disabled variable map for a given environment and optional path.
+// Root disabled variables are inherited into path-level outputs and path-level disabled variables override
+// root disabled values when the same key is present.
+func ResolveDisabledVars(p *Project, env, path string) (map[string]string, error) {
+	if _, ok := p.Environments[env]; !ok {
+		return nil, fmt.Errorf("environment %q not found in project %q", env, p.Name)
+	}
+
+	base := p.GetDisabledVars(env)
+	result := make(map[string]string, len(base))
+	for k, v := range base {
+		result[k] = v
+	}
+
+	if path == "" {
+		return result, nil
+	}
+
+	overrides := p.GetDisabledPathVars(path, env)
+	for k, v := range overrides {
+		result[k] = v
+	}
+
+	return result, nil
+}

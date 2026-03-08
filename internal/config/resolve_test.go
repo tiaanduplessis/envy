@@ -182,3 +182,80 @@ func TestResolveVars(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveDisabledVars(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func() *Project
+		env     string
+		path    string
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name: "root only",
+			setup: func() *Project {
+				p, _ := NewProject("test", []string{"dev"}, "dev")
+				p.SetDisabledVar("dev", "DB", "localhost")
+				return p
+			},
+			env:  "dev",
+			path: "",
+			want: map[string]string{"DB": "localhost"},
+		},
+		{
+			name: "path inherits root disabled vars",
+			setup: func() *Project {
+				p, _ := NewProject("test", []string{"dev"}, "dev")
+				p.SetDisabledVar("dev", "DB", "localhost")
+				p.SetDisabledPathVar("services/api", "dev", "PORT", "3000")
+				return p
+			},
+			env:  "dev",
+			path: "services/api",
+			want: map[string]string{"DB": "localhost", "PORT": "3000"},
+		},
+		{
+			name: "path overrides root disabled var",
+			setup: func() *Project {
+				p, _ := NewProject("test", []string{"dev"}, "dev")
+				p.SetDisabledVar("dev", "DB", "localhost")
+				p.SetDisabledPathVar("services/api", "dev", "DB", "api-db")
+				return p
+			},
+			env:  "dev",
+			path: "services/api",
+			want: map[string]string{"DB": "api-db"},
+		},
+		{
+			name: "missing env returns error",
+			setup: func() *Project {
+				p, _ := NewProject("test", []string{"dev"}, "dev")
+				return p
+			},
+			env:     "staging",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := tt.setup()
+			got, err := ResolveDisabledVars(p, tt.env, tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ResolveDisabledVars() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d vars, want %d: %v", len(got), len(tt.want), got)
+			}
+			for k, v := range tt.want {
+				if got[k] != v {
+					t.Errorf("key %q = %q, want %q", k, got[k], v)
+				}
+			}
+		})
+	}
+}

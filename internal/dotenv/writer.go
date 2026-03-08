@@ -15,9 +15,10 @@ const (
 )
 
 type WriteOptions struct {
-	Format Format
-	Header string
-	Sorted bool
+	Format       Format
+	Header       string
+	Sorted       bool
+	DisabledVars map[string]string
 }
 
 func Write(w io.Writer, vars map[string]string, opts WriteOptions) error {
@@ -46,22 +47,48 @@ func Write(w io.Writer, vars map[string]string, opts WriteOptions) error {
 
 	for _, key := range keys {
 		value := vars[key]
-		quoted := quoteValue(value)
-
-		var line string
-		switch opts.Format {
-		case FormatExport:
-			line = fmt.Sprintf("export %s=%s", key, quoted)
-		default:
-			line = fmt.Sprintf("%s=%s", key, quoted)
+		if _, err := fmt.Fprintln(w, formatLine(key, value, opts.Format, false)); err != nil {
+			return err
 		}
+	}
 
-		if _, err := fmt.Fprintln(w, line); err != nil {
+	disabledKeys := make([]string, 0, len(opts.DisabledVars))
+	for k := range opts.DisabledVars {
+		disabledKeys = append(disabledKeys, k)
+	}
+	if opts.Sorted {
+		sort.Strings(disabledKeys)
+	}
+	if len(disabledKeys) > 0 && (len(keys) > 0 || opts.Header != "") {
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+	}
+	for _, key := range disabledKeys {
+		if _, err := fmt.Fprintln(w, formatLine(key, opts.DisabledVars[key], opts.Format, true)); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func formatLine(key, value string, format Format, disabled bool) string {
+	quoted := quoteValue(value)
+
+	var line string
+	switch format {
+	case FormatExport:
+		line = fmt.Sprintf("export %s=%s", key, quoted)
+	default:
+		line = fmt.Sprintf("%s=%s", key, quoted)
+	}
+
+	if disabled {
+		return "# " + line
+	}
+
+	return line
 }
 
 func quoteValue(s string) string {

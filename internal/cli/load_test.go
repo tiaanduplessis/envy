@@ -62,6 +62,8 @@ func TestLoadCmd_WithPathInheritance(t *testing.T) {
 	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
 	p.SetVar("dev", "SHARED", "yes")
 	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	p.SetDisabledVar("dev", "API_KEY", "disabled")
+	p.SetDisabledPathVar("services/api", "dev", "PORT_OLD", "2999")
 	store.Save(p)
 
 	root := NewRootCmd(store)
@@ -75,6 +77,12 @@ func TestLoadCmd_WithPathInheritance(t *testing.T) {
 	}
 	if !strings.Contains(out, "SHARED=yes") {
 		t.Errorf("missing inherited SHARED: %q", out)
+	}
+	if !strings.Contains(out, "# API_KEY=disabled") {
+		t.Errorf("missing inherited disabled API_KEY: %q", out)
+	}
+	if !strings.Contains(out, "# PORT_OLD=2999") {
+		t.Errorf("missing path disabled PORT_OLD: %q", out)
 	}
 }
 
@@ -243,7 +251,9 @@ func TestLoadCmd_AllPaths_WritesFiles(t *testing.T) {
 	store := setupTestStore(t)
 	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
 	p.SetVar("dev", "DB", "localhost")
+	p.SetDisabledVar("dev", "API_KEY", "disabled")
 	p.SetPathVar("services/api", "dev", "PORT", "3000")
+	p.SetDisabledPathVar("services/api", "dev", "OLD_PORT", "2999")
 	p.SetPathVar("services/web", "dev", "PORT", "4000")
 	store.Save(p)
 
@@ -269,6 +279,9 @@ func TestLoadCmd_AllPaths_WritesFiles(t *testing.T) {
 	if !strings.Contains(string(rootData), "DB=localhost") {
 		t.Errorf("root .env missing DB: %q", string(rootData))
 	}
+	if !strings.Contains(string(rootData), "# API_KEY=disabled") {
+		t.Errorf("root .env missing disabled API_KEY: %q", string(rootData))
+	}
 
 	apiData, err := os.ReadFile(filepath.Join(dir, "services", "api", ".env"))
 	if err != nil {
@@ -279,6 +292,12 @@ func TestLoadCmd_AllPaths_WritesFiles(t *testing.T) {
 	}
 	if !strings.Contains(string(apiData), "DB=localhost") {
 		t.Errorf("api .env missing inherited DB: %q", string(apiData))
+	}
+	if !strings.Contains(string(apiData), "# API_KEY=disabled") {
+		t.Errorf("api .env missing inherited disabled API_KEY: %q", string(apiData))
+	}
+	if !strings.Contains(string(apiData), "# OLD_PORT=2999") {
+		t.Errorf("api .env missing disabled OLD_PORT: %q", string(apiData))
 	}
 
 	webData, err := os.ReadFile(filepath.Join(dir, "services", "web", ".env"))
@@ -315,6 +334,32 @@ func TestLoadCmd_AllPaths_CreatesDirectories(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "KEY=value") {
 		t.Errorf("nested .env missing KEY: %q", string(data))
+	}
+}
+
+func TestLoadCmd_AllPaths_WritesDisabledOnlyPath(t *testing.T) {
+	store := setupTestStore(t)
+	p, _ := config.NewProject("mono", []string{"dev"}, "dev")
+	p.SetDisabledPathVar("services/api", "dev", "PORT", "3000")
+	store.Save(p)
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	root := NewRootCmd(store)
+	_, err := executeCommand(root, "load", "--project", "mono", "--all-paths", "--force")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	apiData, err := os.ReadFile(filepath.Join(dir, "services", "api", ".env"))
+	if err != nil {
+		t.Fatalf("reading services/api/.env: %v", err)
+	}
+	if !strings.Contains(string(apiData), "# PORT=3000") {
+		t.Errorf("api .env missing disabled PORT: %q", string(apiData))
 	}
 }
 

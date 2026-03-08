@@ -40,13 +40,13 @@ func NewUpdateCmd(store *config.Store) *cobra.Command {
 			}
 			defer f.Close()
 
-			vars, err := dotenv.Parse(f)
+			parsed, err := dotenv.ParseWithDisabled(f)
 			if err != nil {
 				return fmt.Errorf("parsing %q: %w", file, err)
 			}
 
 			count := 0
-			for key, value := range vars {
+			for key, value := range parsed.Vars {
 				if path != "" {
 					if merge {
 						existing := p.GetPathVars(path, targetEnv)
@@ -64,6 +64,28 @@ func NewUpdateCmd(store *config.Store) *cobra.Command {
 						}
 					}
 					p.SetVar(targetEnv, key, value)
+				}
+				count++
+			}
+			for key, value := range parsed.DisabledVars {
+				if path != "" {
+					if merge {
+						existing := p.GetDisabledPathVars(path, targetEnv)
+						if existing != nil {
+							if _, ok := existing[key]; ok {
+								continue
+							}
+						}
+					}
+					p.SetDisabledPathVar(path, targetEnv, key, value)
+				} else {
+					if merge {
+						existing := p.GetDisabledVars(targetEnv)
+						if _, ok := existing[key]; ok {
+							continue
+						}
+					}
+					p.SetDisabledVar(targetEnv, key, value)
 				}
 				count++
 			}
