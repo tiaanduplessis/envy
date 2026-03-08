@@ -103,7 +103,16 @@ func Dir(root string) (*Result, error) {
 	return result, nil
 }
 
+var ignoredEnvFiles = map[string]bool{
+	".env.example":  true,
+	".env.sample":   true,
+	".env.template": true,
+}
+
 func isEnvFile(name string) bool {
+	if ignoredEnvFiles[strings.ToLower(name)] {
+		return false
+	}
 	return name == ".env" || strings.HasPrefix(name, ".env.")
 }
 
